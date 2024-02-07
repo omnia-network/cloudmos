@@ -18,9 +18,7 @@ const webSocketStats: ClientWebSocketStats[] = [];
 const whitelist = [
   "http://localhost:3001",
   "http://localhost:3000",
-  "https://deploybeta.cloudmos.io",
-  "https://deploy.cloudmos.io",
-  "https://cloudmos.grafana.net"
+  "https://akash-provider-proxy.icws.io",
 ];
 
 app.use(
