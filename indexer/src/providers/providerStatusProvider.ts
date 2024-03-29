@@ -1,9 +1,15 @@
 import https from "https";
 import axios from "axios";
-import { Provider } from "@shared/dbSchemas/akash";
+import semver from "semver";
+import { Provider, ProviderSnapshotNode, ProviderSnapshotNodeCPU, ProviderSnapshotNodeGPU } from "@shared/dbSchemas/akash";
 import { asyncify, eachLimit } from "async";
 import { ProviderSnapshot } from "@src/../../shared/dbSchemas/akash/providerSnapshot";
+import { sequelize } from "@src/db/dbConnection";
 import { toUTC } from "@src/shared/utils/date";
+import { ProviderStatusInfo, ProviderVersionEndpointResponseType } from "./statusEndpointHandlers/types";
+import { isSameDay } from "date-fns";
+import { fetchProviderStatusFromGRPC } from "./statusEndpointHandlers/grpc";
+import { fetchProviderStatusFromREST } from "./statusEndpointHandlers/rest";
 
 const ConcurrentStatusCall = 10;
 const StatusCallTimeout = 10_000; // 10 seconds
@@ -13,7 +19,11 @@ export async function syncProvidersInfo() {
     where: {
       deletedHeight: null
     },
-    order: [["isOnline", "DESC"]]
+    include: [{ model: ProviderSnapshot, as: "lastSnapshot" }],
+    order: [
+      ["isOnline", "DESC"],
+      ["uptime30d", "DESC"]
+    ]
   });
 
   const httpsAgent = new https.Agent({
@@ -25,151 +35,160 @@ export async function syncProvidersInfo() {
     providers,
     ConcurrentStatusCall,
     asyncify(async (provider: Provider) => {
+      let providerStatus: ProviderStatusInfo | null = null;
+      let errorMessage: string | null = null;
+      let akashVersion: string | null = null;
+      let cosmosVersion: string | null = null;
+
       try {
-        const response = await axios.get(provider.hostUri + "/status", {
+        const versionResponse = await axios.get<ProviderVersionEndpointResponseType>(provider.hostUri + "/version", {
           httpsAgent: httpsAgent,
           timeout: StatusCallTimeout
         });
 
-        if (response.status !== 200) throw "Invalid response status: " + response.status;
-
-        const versionResponse = await axios.get(provider.hostUri + "/version", {
-          httpsAgent: httpsAgent,
-          timeout: StatusCallTimeout
-        });
-
-        const activeResources = sumResources(response.data.cluster.inventory.active);
-        const pendingResources = sumResources(response.data.cluster.inventory.pending);
-        const availableResources = sumResources(response.data.cluster.inventory.available);
-        const checkDate = toUTC(new Date());
-
-        await Provider.update(
-          {
-            isOnline: true,
-            error: null,
-            lastCheckDate: checkDate,
-            cosmosSdkVersion: versionResponse.data.akash.cosmosSdkVersion,
-            akashVersion: versionResponse.data.akash.version,
-            deploymentCount: response.data.manifest.deployments,
-            leaseCount: response.data.cluster.leases,
-            activeCPU: activeResources.cpu,
-            activeGPU: activeResources.gpu,
-            activeMemory: activeResources.memory,
-            activeStorage: activeResources.storage,
-            pendingCPU: pendingResources.cpu,
-            pendingGPU: pendingResources.gpu,
-            pendingMemory: pendingResources.memory,
-            pendingStorage: pendingResources.storage,
-            availableCPU: availableResources.cpu,
-            availableGPU: availableResources.gpu,
-            availableMemory: availableResources.memory,
-            availableStorage: availableResources.storage
-          },
-          {
-            where: { owner: provider.owner }
-          }
+        akashVersion = semver.valid(versionResponse.data.akash.version);
+        cosmosVersion = semver.valid(
+          "cosmosSdkVersion" in versionResponse.data.akash ? versionResponse.data.akash.cosmosSdkVersion : versionResponse.data.akash.cosmos_sdk_version
         );
 
-        await ProviderSnapshot.create({
-          owner: provider.owner,
-          isOnline: true,
-          checkDate: checkDate,
-          deploymentCount: response.data.manifest.deployments,
-          leaseCount: response.data.cluster.leases,
-          activeCPU: activeResources.cpu,
-          activeGPU: activeResources.gpu,
-          activeMemory: activeResources.memory,
-          activeStorage: activeResources.storage,
-          pendingCPU: pendingResources.cpu,
-          pendingGPU: pendingResources.gpu,
-          pendingMemory: pendingResources.memory,
-          pendingStorage: pendingResources.storage,
-          availableCPU: availableResources.cpu,
-          availableGPU: availableResources.gpu,
-          availableMemory: availableResources.memory,
-          availableStorage: availableResources.storage
-        });
+        if (akashVersion && semver.gte(akashVersion, "0.5.0-0")) {
+          providerStatus = await fetchProviderStatusFromGRPC(provider, StatusCallTimeout);
+        } else {
+          providerStatus = await fetchProviderStatusFromREST(provider, StatusCallTimeout);
+        }
       } catch (err) {
-        const checkDate = new Date();
-        const errorMessage = err?.message?.toString() ?? err?.toString();
-
-        await Provider.update(
-          {
-            isOnline: false,
-            lastCheckDate: checkDate,
-            error: errorMessage,
-            akashVersion: null,
-            cosmosSdkVersion: null,
-            deploymentCount: null,
-            leaseCount: null,
-            activeCPU: null,
-            activeGPU: null,
-            activeMemory: null,
-            activeStorage: null,
-            pendingCPU: null,
-            pendingGPU: null,
-            pendingMemory: null,
-            pendingStorage: null,
-            availableCPU: null,
-            availableGPU: null,
-            availableMemory: null,
-            availableStorage: null
-          },
-          {
-            where: { owner: provider.owner }
-          }
-        );
-
-        await ProviderSnapshot.create({
-          owner: provider.owner,
-          isOnline: false,
-          error: errorMessage,
-          checkDate: checkDate
-        });
-      } finally {
-        doneCount++;
-        console.log("Fetched provider info: " + doneCount + " / " + providers.length);
+        errorMessage = err?.message?.toString() ?? err?.toString();
       }
+
+      await saveProviderStatus(provider, providerStatus, akashVersion, cosmosVersion, errorMessage);
+
+      doneCount++;
+      console.log("Fetched provider info: " + doneCount + " / " + providers.length);
     })
   );
 
   console.log("Finished refreshing provider infos");
 }
 
-function getStorageFromResource(resource) {
-  return Object.keys(resource).includes("storage_ephemeral") ? resource.storage_ephemeral : resource.storage;
-}
+async function saveProviderStatus(
+  provider: Provider,
+  providerStatus: ProviderStatusInfo | null,
+  akashVersion: string | null,
+  cosmosVersion: string | null,
+  error: string | null
+) {
+  await sequelize.transaction(async (t) => {
+    const checkDate = toUTC(new Date());
 
-function getUnitValue(resource) {
-  return typeof resource === "number" ? resource : parseInt(resource.units.val);
-}
-
-function getByteValue(val) {
-  return typeof val === "number" ? val : parseInt(val.size.val);
-}
-
-function sumResources(resources) {
-  const resourcesArr = resources?.nodes || resources || [];
-
-  return resourcesArr
-    .map((x) => ({
-      cpu: getUnitValue(x.cpu),
-      gpu: x.gpu ? getUnitValue(x.gpu) : 0,
-      memory: getByteValue(x.memory),
-      storage: getByteValue(getStorageFromResource(x))
-    }))
-    .reduce(
-      (prev, next) => ({
-        cpu: prev.cpu + next.cpu,
-        gpu: prev.gpu + next.gpu,
-        memory: prev.memory + next.memory,
-        storage: prev.storage + next.storage
-      }),
+    const createdSnapshot = await ProviderSnapshot.create(
       {
-        cpu: 0,
-        gpu: 0,
-        memory: 0,
-        storage: 0
+        owner: provider.owner,
+        isOnline: !!providerStatus,
+        isLastOfDay: true,
+        error: error,
+        checkDate: checkDate,
+        deploymentCount: providerStatus?.resources.deploymentCount,
+        leaseCount: providerStatus?.resources.leaseCount,
+        activeCPU: providerStatus?.resources.activeCPU,
+        activeGPU: providerStatus?.resources.activeGPU,
+        activeMemory: providerStatus?.resources.activeMemory,
+        activeStorage: providerStatus?.resources.activeStorage,
+        pendingCPU: providerStatus?.resources.pendingCPU,
+        pendingGPU: providerStatus?.resources.pendingGPU,
+        pendingMemory: providerStatus?.resources.pendingMemory,
+        pendingStorage: providerStatus?.resources.pendingStorage,
+        availableCPU: providerStatus?.resources.availableCPU,
+        availableGPU: providerStatus?.resources.availableGPU,
+        availableMemory: providerStatus?.resources.availableMemory,
+        availableStorage: providerStatus?.resources.availableStorage
+      },
+      { transaction: t }
+    );
+
+    if (provider.lastSnapshot && isSameDay(provider.lastSnapshot.checkDate, checkDate)) {
+      await ProviderSnapshot.update(
+        {
+          isLastOfDay: false
+        },
+        {
+          where: { id: provider.lastSnapshot.id },
+          transaction: t
+        }
+      );
+    }
+
+    await Provider.update(
+      {
+        lastSnapshotId: createdSnapshot.id,
+        isOnline: !!providerStatus,
+        error: error,
+        lastCheckDate: checkDate,
+        cosmosSdkVersion: cosmosVersion,
+        akashVersion: akashVersion,
+        deploymentCount: providerStatus?.resources.deploymentCount,
+        leaseCount: providerStatus?.resources.leaseCount,
+        activeCPU: providerStatus?.resources.activeCPU,
+        activeGPU: providerStatus?.resources.activeGPU,
+        activeMemory: providerStatus?.resources.activeMemory,
+        activeStorage: providerStatus?.resources.activeStorage,
+        pendingCPU: providerStatus?.resources.pendingCPU,
+        pendingGPU: providerStatus?.resources.pendingGPU,
+        pendingMemory: providerStatus?.resources.pendingMemory,
+        pendingStorage: providerStatus?.resources.pendingStorage,
+        availableCPU: providerStatus?.resources.availableCPU,
+        availableGPU: providerStatus?.resources.availableGPU,
+        availableMemory: providerStatus?.resources.availableMemory,
+        availableStorage: providerStatus?.resources.availableStorage
+      },
+      {
+        where: { owner: provider.owner },
+        transaction: t
       }
     );
+
+    if (providerStatus) {
+      for (const node of providerStatus.nodes) {
+        const providerSnapshotNode = await ProviderSnapshotNode.create(
+          {
+            snapshotId: createdSnapshot.id,
+            name: node.name,
+            cpuAllocatable: node.cpuAllocatable,
+            cpuAllocated: node.cpuAllocated,
+            memoryAllocatable: node.memoryAllocatable,
+            memoryAllocated: node.memoryAllocated,
+            ephemeralStorageAllocatable: node.ephemeralStorageAllocatable,
+            ephemeralStorageAllocated: node.ephemeralStorageAllocated,
+            capabilitiesStorageHDD: node.capabilitiesStorageHDD,
+            capabilitiesStorageSSD: node.capabilitiesStorageSSD,
+            capabilitiesStorageNVME: node.capabilitiesStorageNVME,
+            gpuAllocatable: node.gpuAllocatable,
+            gpuAllocated: node.gpuAllocated
+          },
+          { transaction: t }
+        );
+
+        await ProviderSnapshotNodeCPU.bulkCreate(
+          node.cpus.map((cpuInfo) => ({
+            snapshotNodeId: providerSnapshotNode.id,
+            vendor: cpuInfo.vendor,
+            model: cpuInfo.model,
+            vcores: cpuInfo.vcores
+          })),
+          { transaction: t }
+        );
+
+        await ProviderSnapshotNodeGPU.bulkCreate(
+          node.gpus.map((gpuInfo) => ({
+            snapshotNodeId: providerSnapshotNode.id,
+            vendor: gpuInfo.vendor,
+            name: gpuInfo.name,
+            modelId: gpuInfo.modelId,
+            interface: gpuInfo.interface,
+            memorySize: gpuInfo.memorySize
+          })),
+          { transaction: t }
+        );
+      }
+    }
+  });
 }

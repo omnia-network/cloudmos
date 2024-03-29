@@ -15,8 +15,6 @@ export class QueryKeys {
   ];
   static getValidatorsKey = () => ["VALIDATORS"];
   static getProposalsKey = () => ["PROPOSALS"];
-  static getGraphKey = (snapshot: string) => ["GRAPH", snapshot];
-  static getProviderGraphKey = (snapshot: string) => ["PROVIDER_GRAPH", snapshot];
   static getTemplateKey = (id: string) => ["SDL_TEMPLATES", id];
   static getUserTemplatesKey = (username: string) => ["USER_TEMPLATES", username];
   static getUserFavoriteTemplatesKey = (userId: string) => ["USER_FAVORITES_TEMPLATES", userId];
@@ -32,6 +30,7 @@ export class QueryKeys {
   static getLeasesKey = (address: string, dseq: string) => ["LEASE_LIST", address, dseq];
   static getLeaseStatusKey = (dseq: string, gseq: number, oseq: number) => ["LEASE_STATUS", dseq, gseq, oseq];
   static getBidListKey = (address: string, dseq: string) => ["BID_LIST", address, dseq];
+  static getBidInfoKey = (address: string, dseq: string, gseq: number, oseq: number, provider: string) => ["BID_INFO", address, dseq, gseq, oseq, provider];
   static getProvidersKey = () => ["PROVIDERS"];
   static getProviderListKey = () => ["PROVIDER_LIST"];
   static getProviderRegionsKey = () => ["PROVIDER_REGIONS"];
@@ -45,4 +44,6 @@ export class QueryKeys {
   static getBalancesKey = (address: string) => ["BALANCES", address];
   static getTemplatesKey = () => ["TEMPLATES"];
   static getProviderAttributesSchema = () => ["PROVIDER_ATTRIBUTES_SCHEMA"];
+  static getDepositParamsKey = () => ["DEPOSIT_PARAMS"];
+  static getGpuModelsKey = () => ["GPU_MODELS"];
 }

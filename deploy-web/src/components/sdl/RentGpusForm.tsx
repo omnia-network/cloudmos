@@ -1,20 +1,18 @@
-import { Alert, Box, Button, CircularProgress, FormControl, Grid, InputLabel, MenuItem, Paper, Select, Typography, useTheme } from "@mui/material";
-import { useForm, Controller } from "react-hook-form";
+import { Alert, Box, Button, CircularProgress, Grid, Paper, Typography } from "@mui/material";
+import { useForm } from "react-hook-form";
 import { useEffect, useRef, useState } from "react";
-import { ApiTemplate, RentGpusFormValues, Service } from "@src/types";
+import { ApiTemplate, ProfileGpuModel, RentGpusFormValues, Service } from "@src/types";
 import { defaultAnyRegion, defaultRentGpuService } from "@src/utils/sdl/data";
 import { useRouter } from "next/router";
 import sdlStore from "@src/store/sdlStore";
 import { useAtom } from "jotai";
-import { useProviderAttributesSchema } from "@src/queries/useProvidersQuery";
-import { makeStyles } from "tss-react/mui";
-import { useSdlDenoms } from "@src/hooks/useDenom";
 import { RegionSelect } from "./RegionSelect";
 import { AdvancedConfig } from "./AdvancedConfig";
 import { GpuFormControl } from "./GpuFormControl";
 import { CpuFormControl } from "./CpuFormControl";
 import { MemoryFormControl } from "./MemoryFormControl";
 import { StorageFormControl } from "./StorageFormControl";
+import { TokenFormControl } from "./TokenFormControl";
 import { generateSdl } from "@src/utils/sdl/sdlGenerator";
 import { UrlService, handleDocClick } from "@src/utils/urlUtils";
 import { RouteStepKeys, defaultInitialDeposit } from "@src/utils/constants";
@@ -36,43 +34,36 @@ import { ImageSelect } from "./ImageSelect";
 import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
 import { event } from "nextjs-google-analytics";
 import { AnalyticsEvents } from "@src/utils/analytics";
-
-const yaml = require("js-yaml");
+import { useChainParam } from "@src/context/ChainParamProvider";
+import { useGpuModels } from "@src/queries/useGpuQuery";
 
 type Props = {};
 
-const useStyles = makeStyles()(theme => ({
-  formControl: {
-    marginBottom: theme.spacing(1.5)
-  }
-}));
-
 export const RentGpusForm: React.FunctionComponent<Props> = ({}) => {
-  const theme = useTheme();
-  const { classes } = useStyles();
   const [error, setError] = useState(null);
   // const [templateMetadata, setTemplateMetadata] = useState<ITemplate>(null);
+  const [isQueryInit, setIsQuertInit] = useState(false);
   const [isCreatingDeployment, setIsCreatingDeployment] = useState(false);
   const [isDepositingDeployment, setIsDepositingDeployment] = useState(false);
   const [isCheckingPrerequisites, setIsCheckingPrerequisites] = useState(false);
   const formRef = useRef<HTMLFormElement>();
   const [, setDeploySdl] = useAtom(sdlStore.deploySdl);
   const [rentGpuSdl, setRentGpuSdl] = useAtom(sdlStore.rentGpuSdl);
-  const { data: providerAttributesSchema } = useProviderAttributesSchema();
+  const { data: gpuModels } = useGpuModels();
   const { handleSubmit, control, watch, setValue, trigger } = useForm<RentGpusFormValues>({
     defaultValues: {
       services: [{ ...defaultRentGpuService }],
       region: { ...defaultAnyRegion }
     }
   });
-  const { services: _services, region: _region } = watch();
+  const { services: _services } = watch();
   const router = useRouter();
-  const supportedSdlDenoms = useSdlDenoms();
   const currentService: Service = _services[0] || ({} as any);
   const { settings } = useSettings();
   const { address, signAndBroadcastTx } = useWallet();
   const { loadValidCertificates, localCert, isLocalCertMatching, loadLocalCert, setSelectedCertificate } = useCertificate();
   const [sdlDenom, setSdlDenom] = useState("uakt");
+  const { minDeposit } = useChainParam();
 
   useEffect(() => {
     if (rentGpuSdl && rentGpuSdl.services) {
@@ -90,12 +81,37 @@ export const RentGpusForm: React.FunctionComponent<Props> = ({}) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  async function createAndValidateDeploymentData(yamlStr, dseq = null, deposit = defaultInitialDeposit, depositorAddress = null) {
+  useEffect(() => {
+    if (router.query.vendor && router.query.gpu && gpuModels && !isQueryInit) {
+      // Example query: ?vendor=nvidia&gpu=h100&vram=80Gi&interface=sxm
+      const vendorQuery = router.query.vendor as string;
+      const gpuQuery = router.query.gpu as string;
+      const gpuModel = gpuModels.find(x => x.name === vendorQuery)?.models.find(x => x.name === gpuQuery);
+
+      if (gpuModel) {
+        const memoryQuery = router.query.vram as string;
+        const interfaceQuery = router.query.interface as string;
+
+        const model: ProfileGpuModel = {
+          vendor: vendorQuery,
+          name: gpuModel.name,
+          memory: gpuModel.memory.find(x => x === memoryQuery) || "",
+          interface: gpuModel.interface.find(x => x === interfaceQuery) || ""
+        };
+        setValue("services.0.profile.gpuModels", [model]);
+      } else {
+        console.log("GPU model not found", gpuQuery);
+      }
+
+      setIsQuertInit(true);
+    }
+  }, [router.query, gpuModels, isQueryInit]);
+
+  async function createAndValidateDeploymentData(yamlStr: string, dseq = null, deposit = defaultInitialDeposit, depositorAddress = null) {
     try {
       if (!yamlStr) return null;
 
-      const doc = yaml.load(yamlStr);
-      const dd = await deploymentData.NewDeploymentData(settings.apiEndpoint, doc, dseq, address, deposit, depositorAddress);
+      const dd = await deploymentData.NewDeploymentData(settings.apiEndpoint, yamlStr, dseq, address, deposit, depositorAddress);
       validateDeploymentData(dd);
 
       setSdlDenom(dd.deposit.denom);
@@ -110,7 +126,7 @@ export const RentGpusForm: React.FunctionComponent<Props> = ({}) => {
     try {
       if (!yamlStr) return null;
 
-      const services = importSimpleSdl(yamlStr, providerAttributesSchema);
+      const services = importSimpleSdl(yamlStr);
 
       setError(null);
 
@@ -133,7 +149,19 @@ export const RentGpusForm: React.FunctionComponent<Props> = ({}) => {
 
     if (!result) return;
 
+    // Filter out invalid gpu models
+    const _gpuModels = (result[0].profile.gpuModels || []).map(templateModel => {
+      const isValid = gpuModels?.find(x => x.name === templateModel.vendor)?.models.some(x => x.name === templateModel.name);
+      return {
+        vendor: isValid ? templateModel.vendor : "nvidia",
+        name: isValid ? templateModel.name : "",
+        memory: isValid ? templateModel.memory : "",
+        interface: isValid ? templateModel.interface : ""
+      };
+    });
+
     setValue("services", result as Service[]);
+    setValue("services.0.profile.gpuModels", _gpuModels);
     trigger();
   };
 
@@ -225,12 +253,11 @@ export const RentGpusForm: React.FunctionComponent<Props> = ({}) => {
         <DeploymentDepositModal
           handleCancel={() => setIsDepositingDeployment(false)}
           onDeploymentDeposit={onDeploymentDeposit}
-          min={5} // TODO Query from chain params
           denom={currentService?.placement?.pricing?.denom || sdlDenom}
           infoText={
             <Alert severity="info" sx={{ marginBottom: "1rem" }} variant="outlined">
               <Typography variant="caption">
-                To create a deployment, you need to have at least <b>5 AKT</b> or <b>5 USDC</b> in an escrow account.{" "}
+                To create a deployment, you need to have at least <b>{minDeposit.akt} AKT</b> or <b>{minDeposit.usdc} USDC</b> in an escrow account.{" "}
                 <LinkTo onClick={ev => handleDocClick(ev, "https://docs.akash.network/glossary/escrow#escrow-accounts")}>
                   <strong>Learn more.</strong>
                 </LinkTo>
@@ -248,10 +275,11 @@ export const RentGpusForm: React.FunctionComponent<Props> = ({}) => {
           <Box sx={{ marginTop: "1rem" }}>
             <GpuFormControl
               control={control as any}
-              providerAttributesSchema={providerAttributesSchema}
+              gpuModels={gpuModels}
               serviceIndex={0}
               hasGpu
               currentService={currentService}
+              setValue={setValue}
               hideHasGpu
             />
           </Box>
@@ -273,41 +301,12 @@ export const RentGpusForm: React.FunctionComponent<Props> = ({}) => {
               <RegionSelect control={control} />
             </Grid>
             <Grid item xs={6}>
-              <FormControl className={classes.formControl} fullWidth sx={{ display: "flex", alignItems: "center", flexDirection: "row" }}>
-                <InputLabel id="grant-token">Token</InputLabel>
-                <Controller
-                  control={control}
-                  name={`services.0.placement.pricing.denom`}
-                  defaultValue=""
-                  rules={{
-                    required: true
-                  }}
-                  render={({ fieldState, field }) => {
-                    return (
-                      <Select
-                        {...field}
-                        labelId="sdl-token"
-                        label="Token"
-                        size="small"
-                        error={!!fieldState.error}
-                        fullWidth
-                        MenuProps={{ disableScrollLock: true }}
-                      >
-                        {supportedSdlDenoms.map(token => (
-                          <MenuItem key={token.id} value={token.value}>
-                            {token.tokenLabel}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    );
-                  }}
-                />
-              </FormControl>
+              <TokenFormControl control={control} name="services.0.placement.pricing.denom" />
             </Grid>
           </Grid>
         </Paper>
 
-        <AdvancedConfig control={control} currentService={currentService} providerAttributesSchema={providerAttributesSchema} />
+        <AdvancedConfig control={control} currentService={currentService} />
 
         {error && (
           <Alert severity="error" variant="outlined" sx={{ marginTop: "1rem" }}>

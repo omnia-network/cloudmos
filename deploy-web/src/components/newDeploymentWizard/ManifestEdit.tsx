@@ -28,8 +28,7 @@ import sdlStore from "@src/store/sdlStore";
 import { useAtom } from "jotai";
 import { SdlBuilder, SdlBuilderRefType } from "./SdlBuilder";
 import { validateDeploymentData } from "@src/utils/deploymentUtils";
-
-const yaml = require("js-yaml");
+import { useChainParam } from "@src/context/ChainParamProvider";
 
 const useStyles = makeStyles()(theme => ({
   tooltip: {
@@ -68,6 +67,7 @@ export const ManifestEdit: React.FunctionComponent<Props> = ({ editedManifest, s
   const theme = useTheme();
   const smallScreen = useMediaQuery(theme.breakpoints.down("md"));
   const sdlBuilderRef = useRef<SdlBuilderRefType>(null);
+  const { minDeposit } = useChainParam();
 
   useEffect(() => {
     if (selectedTemplate?.name) {
@@ -96,12 +96,11 @@ export const ManifestEdit: React.FunctionComponent<Props> = ({ editedManifest, s
     setEditedManifest(value);
   }
 
-  async function createAndValidateDeploymentData(yamlStr, dseq = null, deposit = defaultInitialDeposit, depositorAddress = null) {
+  async function createAndValidateDeploymentData(yamlStr: string, dseq = null, deposit = defaultInitialDeposit, depositorAddress = null) {
     try {
       if (!yamlStr) return null;
 
-      const doc = yaml.load(yamlStr);
-      const dd = await deploymentData.NewDeploymentData(settings.apiEndpoint, doc, dseq, address, deposit, depositorAddress);
+      const dd = await deploymentData.NewDeploymentData(settings.apiEndpoint, yamlStr, dseq, address, deposit, depositorAddress);
       validateDeploymentData(dd, selectedTemplate);
 
       setSdlDenom(dd.deposit.denom);
@@ -315,12 +314,11 @@ export const ManifestEdit: React.FunctionComponent<Props> = ({ editedManifest, s
         <DeploymentDepositModal
           handleCancel={() => setIsDepositingDeployment(false)}
           onDeploymentDeposit={onDeploymentDeposit}
-          min={5} // TODO Query from chain params
           denom={sdlDenom}
           infoText={
             <Alert severity="info" className={classes.alert} variant="outlined">
               <Typography variant="caption">
-                To create a deployment, you need to have at least <b>5 AKT</b> or <b>5 USDC</b> in an escrow account.{" "}
+                To create a deployment, you need to have at least <b>{minDeposit.akt} AKT</b> or <b>{minDeposit.usdc} USDC</b> in an escrow account.{" "}
                 <LinkTo onClick={ev => handleDocClick(ev, "https://docs.akash.network/glossary/escrow#escrow-accounts")}>
                   <strong>Learn more.</strong>
                 </LinkTo>

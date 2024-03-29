@@ -6,13 +6,17 @@ import { chainModels, getChainModels, userModels } from "@shared/dbSchemas";
 import { Template, TemplateFavorite, UserAddressName, UserSetting } from "@shared/dbSchemas/user";
 import { chainDefinitions } from "@shared/chainDefinitions";
 
+function isValidNetwork(network: string): network is keyof typeof csMap {
+  return network in csMap;
+}
+
 const csMap = {
   mainnet: env.AkashDatabaseCS,
   testnet: env.AkashTestnetDatabaseCS,
   sandbox: env.AkashSandboxDatabaseCS
 };
 
-if (!(env.Network in csMap)) {
+if (!isValidNetwork(env.Network)) {
   throw new Error(`Invalid network: ${env.Network}`);
 }
 
@@ -69,3 +73,5 @@ export async function syncUserSchema() {
   await Template.sync();
   await TemplateFavorite.sync();
 }
+
+export const closeConnections = async () => await Promise.all([chainDb.close(), userDb.close(), ...Object.values(chainDbs).map((db) => db.close())]);
