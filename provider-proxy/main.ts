@@ -15,22 +15,10 @@ const { PORT = 3040 } = process.env;
 
 const webSocketStats: ClientWebSocketStats[] = [];
 
-const whitelist = [
-  "http://localhost:3001",
-  "http://localhost:3000",
-  // TODO: add frontend canister urls
-];
-
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin || whitelist.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        console.log("Cors refused: " + origin);
-        callback(new Error("Not allowed by CORS"));
-      }
-    }
+    // TODO: refine CORS policies
+    origin: "*",
   })
 );
 app.use(express.json());
