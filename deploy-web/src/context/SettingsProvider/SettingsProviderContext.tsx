@@ -1,15 +1,18 @@
-import React, { useEffect, useState, useCallback } from "react";
+"use client";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import axios from "axios";
 import { queryClient } from "@src/queries";
-import { mainnetId, mainnetNodes } from "@src/utils/constants";
+import { mainnetId } from "@src/utils/constants";
 import { useLocalStorage } from "@src/hooks/useLocalStorage";
-import { migrateLocalStorage } from "@src/utils/localStorage";
 import { initAppTypes } from "@src/utils/init";
 import { NodeStatus } from "@src/types/node";
 import { initiateNetworkData, networks } from "@src/store/networkStore";
-import { DepositParams } from "@src/types/deployment";
+import { migrateLocalStorage } from "@src/utils/localStorage";
+import { mainnetNodes } from "@src/utils/apiUtils";
+import { usePreviousRoute } from "@src/hooks/usePreviousRoute";
+import { z } from "zod";
 
-type Node = {
+export type BlockchainNode = {
   api: string;
   rpc: string;
   status: string;
@@ -18,13 +21,13 @@ type Node = {
   id: string;
 };
 
-type Settings = {
+export type Settings = {
   apiEndpoint: string;
   rpcEndpoint: string;
   isCustomNode: boolean;
-  nodes: Array<Node>;
-  selectedNode: Node;
-  customNode: Node;
+  nodes: Array<BlockchainNode>;
+  selectedNode: BlockchainNode | null;
+  customNode: BlockchainNode | null;
 };
 
 type ContextType = {
@@ -38,9 +41,9 @@ type ContextType = {
   setSelectedNetworkId: (value: React.SetStateAction<string>) => void;
 };
 
-const SettingsProviderContext = React.createContext<Partial<ContextType>>({});
+const SettingsProviderContext = React.createContext<ContextType>({} as ContextType);
 
-const defaultSettings = {
+const defaultSettings: Settings = {
   apiEndpoint: "",
   rpcEndpoint: "",
   isCustomNode: false,
@@ -49,14 +52,16 @@ const defaultSettings = {
   customNode: null
 };
 
-export const SettingsProvider = ({ children }) => {
-  const [settings, setSettings] = useState(defaultSettings);
+export function SettingsProvider({ children }: React.PropsWithChildren<{}>) {
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [isSettingsInit, setIsSettingsInit] = useState(false);
   const [isRefreshingNodeStatus, setIsRefreshingNodeStatus] = useState(false);
   const { getLocalStorageItem, setLocalStorageItem } = useLocalStorage();
   const [selectedNetworkId, setSelectedNetworkId] = useState(mainnetId);
   const { isCustomNode, customNode, nodes, apiEndpoint } = settings;
+
+  usePreviousRoute();
 
   // load settings from localStorage or set default values
   useEffect(() => {
@@ -77,12 +82,12 @@ export const SettingsProvider = ({ children }) => {
       setSelectedNetworkId(_selectedNetworkId);
 
       const settingsStr = getLocalStorageItem("settings");
-      const settings = { ...defaultSettings, ...JSON.parse(settingsStr) } || {};
+      const settings = { ...defaultSettings, ...JSON.parse(settingsStr || "{}") };
       let defaultApiNode, defaultRpcNode, selectedNode;
 
       // Set the available nodes list and default endpoints
       const currentNetwork = networks.find(x => x.id === _selectedNetworkId);
-      const response = await axios.get(currentNetwork.nodesUrl || mainnetNodes);
+      const response = await axios.get(currentNetwork?.nodesUrl || mainnetNodes);
       let nodes = response.data;
 
       const hasSettings =
@@ -279,7 +284,7 @@ export const SettingsProvider = ({ children }) => {
 
       // Update the settings with callback to avoid stale state settings
       setSettings(prevSettings => {
-        const selectedNode = _nodes.find(node => node.id === prevSettings.selectedNode.id);
+        const selectedNode = _nodes.find(node => node.id === prevSettings.selectedNode?.id);
 
         const newSettings = {
           ...prevSettings,
@@ -313,7 +318,7 @@ export const SettingsProvider = ({ children }) => {
       {children}
     </SettingsProviderContext.Provider>
   );
-};
+}
 
 export const useSettings = () => {
   return { ...React.useContext(SettingsProviderContext) };

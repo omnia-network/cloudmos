@@ -1,10 +1,12 @@
+"use client";
 import { ReactNode } from "react";
-import { Popup } from "../shared/Popup";
-import { Box, Button, IconButton, Typography, useTheme } from "@mui/material";
-import { useSnackbar } from "notistack";
 import Editor from "@monaco-editor/react";
 import { copyTextToClipboard } from "@src/utils/copyClipboard";
-import FileCopy from "@mui/icons-material/FileCopy";
+import { Popup } from "@src/components/shared/Popup";
+import { Button } from "@src/components/ui/button";
+import { Copy } from "iconoir-react";
+import { useTheme } from "next-themes";
+import { useSnackbar } from "notistack";
 import { Snackbar } from "../shared/Snackbar";
 
 type Props = {
@@ -14,7 +16,7 @@ type Props = {
 };
 
 export const PreviewSdl: React.FunctionComponent<Props> = ({ sdl, onClose }) => {
-  const theme = useTheme();
+  const { resolvedTheme } = useTheme();
   const { enqueueSnackbar } = useSnackbar();
 
   const onCopyClick = () => {
@@ -44,14 +46,15 @@ export const PreviewSdl: React.FunctionComponent<Props> = ({ sdl, onClose }) => 
       maxWidth="md"
       enableCloseOnBackdropClick
     >
-      <Box sx={{ display: "flex", alignItems: "center", marginBottom: ".5rem" }}>
-        <Button color="secondary" variant="contained" endIcon={<FileCopy fontSize="small" />} onClick={onCopyClick}>
+      <div className="mb-4 flex items-center">
+        <Button color="secondary" variant="default" onClick={onCopyClick} size="sm">
           Copy the SDL
+          <Copy className="ml-2 text-sm" />
         </Button>
-      </Box>
-      <Box sx={{ marginBottom: ".5rem" }}>
-        <Editor height="500px" defaultLanguage="yaml" value={sdl} theme={theme.palette.mode === "dark" ? "vs-dark" : "light"} />
-      </Box>
+      </div>
+      <div className="mb-2">
+        <Editor height="500px" defaultLanguage="yaml" value={sdl} theme={resolvedTheme === "dark" ? "vs-dark" : "light"} />
+      </div>
     </Popup>
   );
 };

@@ -1,13 +1,13 @@
-import { UseQueryOptions, useQuery, QueryKey, useMutation, useQueryClient, UseMutationOptions } from "react-query";
+import { UseQueryOptions, useQuery, QueryKey, useMutation, useQueryClient } from "react-query";
 import axios from "axios";
 import { QueryKeys } from "./queryKeys";
 import { ITemplate } from "@src/types";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { UrlService } from "@src/utils/urlUtils";
-import { useSnackbar } from "notistack";
-import { Snackbar } from "@src/components/shared/Snackbar";
 import { useCustomUser } from "@src/hooks/useCustomUser";
 import { ApiUrlService } from "@src/utils/apiUtils";
+import { useSnackbar } from "notistack";
+import { Snackbar } from "@src/components/shared/Snackbar";
 
 async function getUserTemplates(username: string): Promise<ITemplate[]> {
   const response = await axios.get(`/api/proxy/user/templates/${username}`);
@@ -27,7 +27,7 @@ async function getUserFavoriteTemplates(): Promise<Partial<ITemplate>[]> {
 
 export function useUserFavoriteTemplates(options?: Omit<UseQueryOptions<Partial<ITemplate>[], Error, any, QueryKey>, "queryKey" | "queryFn">) {
   const { user } = useCustomUser();
-  return useQuery<Partial<ITemplate>[], Error>(QueryKeys.getUserFavoriteTemplatesKey(user?.sub), () => getUserFavoriteTemplates(), options);
+  return useQuery<Partial<ITemplate>[], Error>(QueryKeys.getUserFavoriteTemplatesKey(user?.sub || ""), () => getUserFavoriteTemplates(), options);
 }
 
 async function getTemplate(id: string): Promise<ITemplate> {
@@ -104,6 +104,11 @@ export function useRemoveFavoriteTemplate(id: string) {
 
 async function getTemplates() {
   const response = await axios.get(ApiUrlService.templates());
+
+  if (!response.data) {
+    return { categories: [], templates: [] };
+  }
+
   let categories = response.data.filter(x => (x.templates || []).length > 0);
   categories.forEach(c => {
     c.templates.forEach(t => (t.category = c.title));

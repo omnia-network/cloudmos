@@ -1,45 +1,29 @@
+"use client";
 import React, { ReactNode, useEffect, useState } from "react";
-import Box from "@mui/material/Box";
 import { IntlProvider } from "react-intl";
 import { ErrorBoundary } from "react-error-boundary";
 import { ErrorFallback } from "../shared/ErrorFallback";
-import { accountBarHeight, closedDrawerWidth, drawerWidth } from "@src/utils/constants";
-import { CircularProgress, Typography, useMediaQuery, useTheme } from "@mui/material";
-import { makeStyles } from "tss-react/mui";
+import { accountBarHeight } from "@src/utils/constants";
+import { useMediaQuery, useTheme as useMuiTheme } from "@mui/material";
 import { WelcomeModal } from "./WelcomeModal";
 import { Sidebar } from "./Sidebar";
 import { useSettings } from "@src/context/SettingsProvider";
 import { LinearLoadingSkeleton } from "../shared/LinearLoadingSkeleton";
-import { Header } from "./Header";
-import { NewsletterModal } from "../shared/NewsletterModal";
 import { useWallet } from "@src/context/WalletProvider";
+import Spinner from "../shared/Spinner";
+import { cn } from "@src/utils/styleUtils";
+import { Nav } from "./Nav";
 
 type Props = {
   isLoading?: boolean;
   isUsingSettings?: boolean;
   isUsingWallet?: boolean;
+  disableContainer?: boolean;
+  containerClassName?: string;
   children?: ReactNode;
 };
 
-const useStyles = makeStyles()(theme => ({
-  root: {
-    width: "100%"
-  },
-  accountBar: {
-    height: `${accountBarHeight}px`,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
-    borderBottom: `1px solid ${theme.palette.mode === "dark" ? theme.palette.grey[900] : theme.palette.grey[300]}`
-  },
-  viewContentContainer: {
-    flexGrow: 1,
-    transition: "margin-left .3s ease"
-  }
-}));
-
-const Layout: React.FunctionComponent<Props> = ({ children, isLoading, isUsingSettings, isUsingWallet }) => {
+const Layout: React.FunctionComponent<Props> = ({ children, isLoading, isUsingSettings, isUsingWallet, disableContainer, containerClassName }) => {
   const [locale, setLocale] = useState("en-US");
 
   useEffect(() => {
@@ -50,22 +34,27 @@ const Layout: React.FunctionComponent<Props> = ({ children, isLoading, isUsingSe
 
   return (
     <IntlProvider locale={locale} defaultLocale="en-US">
-      <LayoutApp isLoading={isLoading} isUsingSettings={isUsingSettings} isUsingWallet={isUsingWallet}>
+      <LayoutApp
+        isLoading={isLoading}
+        isUsingSettings={isUsingSettings}
+        isUsingWallet={isUsingWallet}
+        disableContainer={disableContainer}
+        containerClassName={containerClassName}
+      >
         {children}
       </LayoutApp>
     </IntlProvider>
   );
 };
 
-const LayoutApp: React.FunctionComponent<Props> = ({ children, isLoading, isUsingSettings, isUsingWallet }) => {
-  const theme = useTheme();
-  const { classes } = useStyles();
+const LayoutApp: React.FunctionComponent<Props> = ({ children, isLoading, isUsingSettings, isUsingWallet, disableContainer, containerClassName = "" }) => {
+  const muiTheme = useMuiTheme();
   const [isShowingWelcome, setIsShowingWelcome] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(true);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { refreshNodeStatuses, isSettingsInit } = useSettings();
   const { isWalletLoaded } = useWallet();
-  const smallScreen = useMediaQuery(theme.breakpoints.down("md"));
+  const smallScreen = useMediaQuery(muiTheme.breakpoints.down("md"));
 
   useEffect(() => {
     const _isNavOpen = localStorage.getItem("isNavOpen");
@@ -115,34 +104,27 @@ const LayoutApp: React.FunctionComponent<Props> = ({ children, isLoading, isUsin
   return (
     <>
       <WelcomeModal open={isShowingWelcome} onClose={onWelcomeClose} />
-      <NewsletterModal />
 
-      <Box sx={{ height: "100%" }}>
-        <Box className={classes.root} sx={{ marginTop: `${accountBarHeight}px`, height: "100%" }}>
-          <Box height="100%">
-            <Header isMobileOpen={isMobileOpen} handleDrawerToggle={handleDrawerToggle} />
+      <div className="h-full">
+        <div className="h-full w-full" style={{ marginTop: `${accountBarHeight}px` }}>
+          <div className="h-full">
+            <Nav isMobileOpen={isMobileOpen} handleDrawerToggle={handleDrawerToggle} />
 
-            <Box
-              sx={{
-                display: { xs: "block", sx: "block", md: "flex" },
-                width: "100%",
-                borderRadius: 0,
-                flexGrow: 1,
-                height: "100%"
-              }}
-            >
+            <div className="block h-full w-full flex-grow rounded-none md:flex">
               <Sidebar onOpenMenuClick={onOpenMenuClick} isNavOpen={isNavOpen} handleDrawerToggle={handleDrawerToggle} isMobileOpen={isMobileOpen} />
 
-              <Box
-                className={classes.viewContentContainer}
-                sx={{ marginLeft: { xs: 0, sm: 0, md: isNavOpen ? `${drawerWidth}px` : `${closedDrawerWidth}px` }, minWidth: 0 }}
+              <div
+                className={cn("ease ml-0 h-full flex-grow transition-[margin-left] duration-300", {
+                  ["md:ml-[240px]"]: isNavOpen,
+                  ["md:ml-[57px]"]: !isNavOpen
+                })}
               >
-                <ErrorBoundary FallbackComponent={ErrorFallback}>
-                  {isLoading !== undefined && <LinearLoadingSkeleton isLoading={isLoading} />}
+                {isLoading !== undefined && <LinearLoadingSkeleton isLoading={isLoading} />}
 
+                <ErrorBoundary FallbackComponent={ErrorFallback}>
                   {!isUsingSettings || isSettingsInit ? (
                     !isUsingWallet || isWalletLoaded ? (
-                      children
+                      <div className={cn({ ["container pb-8 pt-4 sm:pt-8"]: !disableContainer }, containerClassName)}>{children}</div>
                     ) : (
                       <Loading text="Loading wallet..." />
                     )
@@ -150,27 +132,26 @@ const LayoutApp: React.FunctionComponent<Props> = ({ children, isLoading, isUsin
                     <Loading text="Loading settings..." />
                   )}
                 </ErrorBoundary>
-              </Box>
-            </Box>
-          </Box>
-        </Box>
-      </Box>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </>
   );
 };
 
 const Loading: React.FunctionComponent<{ text: string }> = ({ text }) => {
   return (
-    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", width: "100%", flexDirection: "column", padding: "3rem 0" }}>
-      <Box sx={{ paddingBottom: "1rem" }}>
-        <CircularProgress size="5rem" color="secondary" />
-      </Box>
-      <div>
-        <Typography variant="h5">{text}</Typography>
+    <div className="flex h-full w-full flex-col items-center justify-center pb-12 pt-12">
+      <div className="pb-4">
+        <Spinner size="large" />
       </div>
-    </Box>
+      <div>
+        <h5>{text}</h5>
+      </div>
+    </div>
   );
 };
 
 export default Layout;
-

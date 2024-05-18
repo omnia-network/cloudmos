@@ -10,23 +10,38 @@ interface CachedObject<T> {
   data: T;
 }
 
+interface MemoizeOptions {
+  keepData?: boolean;
+  ttlInSeconds?: number;
+  key?: string;
+}
+
+export const Memoize = (options?: MemoizeOptions) => (target: object, propertyName: string, descriptor: PropertyDescriptor) => {
+  const originalMethod = descriptor.value;
+
+  const cacheKey = options?.key || `${target.constructor.name}#${propertyName}`;
+
+  descriptor.value = async function memoizedFunction(...args: unknown[]) {
+    return await cacheResponse(options?.ttlInSeconds || 60 * 2, cacheKey, originalMethod.bind(this, ...args), options?.keepData);
+  };
+};
+
 export async function cacheResponse<T>(seconds: number, key: string, refreshRequest: () => Promise<T>, keepData?: boolean): Promise<T> {
   const duration = seconds * 1000;
   const cachedObject = cacheEngine.getFromCache(key) as CachedObject<T> | undefined;
-
-  console.log(`Cache key: ${key}`);
+  // console.log(`Cache key: ${key}`);
 
   // If first time or expired, must refresh data if not already refreshing
   const cacheExpired = Math.abs(differenceInSeconds(cachedObject?.date, new Date())) > seconds;
   if ((!cachedObject || cacheExpired) && !(key in pendingRequests)) {
-    console.log(`Making request: ${key}`);
+    // console.log(`Making request: ${key}`);
     pendingRequests[key] = refreshRequest()
       .then((data) => {
         cacheEngine.storeInCache(key, { date: new Date(), data: data }, keepData ? undefined : duration);
         return data;
       })
       .catch((err) => {
-        console.log(`Error making cache request ${err}`);
+        // console.log(`Error making cache request ${err}`);
         Sentry.captureException(err);
       })
       .finally(() => {
@@ -36,10 +51,10 @@ export async function cacheResponse<T>(seconds: number, key: string, refreshRequ
 
   // If there is data in cache, return it even if it is expired. Otherwise, wait for the refresh request to finish
   if (cachedObject) {
-    console.log(`Cache hit: ${key}`);
+    // console.log(`Cache hit: ${key}`);
     return cachedObject.data;
   } else {
-    console.log(`Waiting for pending request: ${key}`);
+    // console.log(`Waiting for pending request: ${key}`);
     return (await pendingRequests[key]) as T;
   }
 }
@@ -61,5 +76,5 @@ export const cacheKeys = {
   getMainnetVersion: "getMainnetVersion",
   getTestnetVersion: "getTestnetVersion",
   getSandboxVersion: "getSandboxVersion",
-  getGpuModels: "getGpuModels",
+  getGpuModels: "getGpuModels"
 };

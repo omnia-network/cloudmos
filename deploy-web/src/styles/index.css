@@ -10,6 +10,12 @@
 }
 
 [data-floating-ui-portal] > div {
+  z-index: 2000 !important;
+  pointer-events: auto !important;
+}
+
+/* Hack to make the Select component show in Dialog */
+[data-radix-popper-content-wrapper] {
   z-index: 1500 !important;
 }
 
@@ -62,3 +68,48 @@
   border-radius: 6px;
 }
 
+.markdownContainerRoot {
+  word-break: break-word;
+}
+
+.markdownContainerRoot pre {
+  overflow: auto;
+  border-radius: 0.2rem;
+  padding: 0.5rem;
+}
+
+.markdownContainerRoot table {
+  overflow: auto;
+  word-break: break-all;
+}
+
+.markdownContainerRoot h3 code {
+  color: inherit;
+}
+
+.markdownContainerRoot span.linenumber {
+  display: none !important;
+}
+
+#nprogress .bar {
+  background: hsl(var(--primary)) !important;
+  height: 2px !important;
+  z-index: 10000 !important;
+}
+
+#nprogress .spinner {
+  z-index: 10000 !important;
+  top: 6px !important;
+  right: 8px !important;
+}
+
+#nprogress .peg {
+  box-shadow:
+    0 0 10px hsl(var(--primary)),
+    0 0 5pxhsl (var(--primary));
+}
+
+#nprogress .spinner-icon {
+  border-top-color: hsl(var(--primary)) !important;
+  border-left-color: hsl(var(--primary)) !important;
+}

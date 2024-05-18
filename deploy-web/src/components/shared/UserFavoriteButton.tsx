@@ -1,12 +1,14 @@
+"use client";
 import React, { ReactNode, useState } from "react";
-import { CircularProgress, IconButton } from "@mui/material";
-import StarIcon from "@mui/icons-material/Star";
-import StarOutlineIcon from "@mui/icons-material/StarOutline";
 import { useAddFavoriteTemplate, useRemoveFavoriteTemplate } from "@src/queries/useTemplateQuery";
-import { Snackbar } from "./Snackbar";
-import { useSnackbar } from "notistack";
 import { useCustomUser } from "@src/hooks/useCustomUser";
 import { MustConnectModal } from "./MustConnectModal";
+import { Button } from "../ui/button";
+import Spinner from "./Spinner";
+import { MdStar, MdStarOutline } from "react-icons/md";
+import { cn } from "@src/utils/styleUtils";
+import { useSnackbar } from "notistack";
+import { Snackbar } from "./Snackbar";
 
 type Props = {
   id: string;
@@ -53,9 +55,9 @@ export const UserFavoriteButton: React.FunctionComponent<Props> = ({ id, isFavor
   return (
     <>
       {showMustConnectModal && <MustConnectModal message="To add template favorites" onClose={() => setShowMustConnectModal(false)} />}
-      <IconButton size="small" onClick={onFavoriteClick} color={isFavorite ? "secondary" : "default"}>
-        {isSaving ? <CircularProgress size="1.5rem" color="secondary" /> : isFavorite ? <StarIcon /> : <StarOutlineIcon />}
-      </IconButton>
+      <Button size="icon" onClick={onFavoriteClick} variant="ghost" className={cn({ ["text-primary"]: isFavorite }, "text-xl")}>
+        {isSaving ? <Spinner size="small" /> : isFavorite ? <MdStar /> : <MdStarOutline />}
+      </Button>
     </>
   );
 };

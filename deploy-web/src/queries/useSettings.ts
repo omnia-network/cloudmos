@@ -3,10 +3,10 @@ import { useCustomUser } from "@src/hooks/useCustomUser";
 import { UserSettings } from "@src/types/user";
 import { ApiUrlService } from "@src/utils/apiUtils";
 import axios, { AxiosResponse } from "axios";
-import { useSnackbar } from "notistack";
 import { useMutation, useQuery } from "react-query";
 import { QueryKeys } from "./queryKeys";
 import { DepositParams, RpcDepositParams } from "@src/types/deployment";
+import { useSnackbar } from "notistack";
 
 export function useSaveSettings() {
   const { enqueueSnackbar } = useSnackbar();

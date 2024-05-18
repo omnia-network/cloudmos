@@ -1,21 +1,18 @@
+"use client";
 import React, { ReactNode } from "react";
-import Box from "@mui/material/Box";
-import { Typography } from "@mui/material";
 import { WalletStatus } from "../layout/WalletStatus";
+import { Title } from "./Title";
 
 type Props = {
   text: string | ReactNode;
   children?: ReactNode;
 };
 
-export const ConnectWallet: React.FunctionComponent<Props> = ({ children, text }) => {
+export const ConnectWallet: React.FunctionComponent<Props> = ({ text }) => {
   return (
-    <Box sx={{ maxWidth: "350px", margin: "0 auto", textAlign: "center" }}>
-      <Typography variant="h1" sx={{ fontSize: "1.2rem", marginBottom: "1rem", textAlign: "center" }}>
-        {text}
-      </Typography>
+    <div className="mx-auto max-w-[400px] text-center">
+      <Title className="mb-4 text-center !text-lg" subTitle>{text}</Title>
       <WalletStatus />
-    </Box>
+    </div>
   );
 };
-

@@ -4,29 +4,26 @@ export type LocalDeploymentData = {
   owner?: string;
   name?: string;
   manifest?: string;
-  manifestVersion?: string;
+  manifestVersion?: Uint8Array;
 };
 
-export function getDeploymentLocalData(dseq: string | number) {
+export function getDeploymentLocalData(dseq: string | number): LocalDeploymentData | null {
   const selectedNetworkId = localStorage.getItem("selectedNetworkId");
   const selectedWallet = getSelectedStorageWallet();
 
   if (!selectedWallet) return null;
 
   const dataStr = localStorage.getItem(`${selectedNetworkId}/${selectedWallet.address}/deployments/${dseq}.data`);
-  if (!dataStr) return null;
 
-  const parsedData = JSON.parse(dataStr) as LocalDeploymentData;
-
-  return parsedData;
+  return dataStr ? JSON.parse(dataStr) : null;
 }
 
-export function saveDeploymentManifestAndName(dseq: string, manifest: string, version: string, address: string, name: string) {
+export function saveDeploymentManifestAndName(dseq: string, manifest: string, version: Uint8Array, address: string, name: string) {
   saveDeploymentManifest(dseq, manifest, version, address);
   updateDeploymentLocalData(dseq, { name: name });
 }
 
-export function saveDeploymentManifest(dseq: string, manifest: string, version: string, address: string) {
+export function saveDeploymentManifest(dseq: string, manifest: string, version: Uint8Array, address: string) {
   const data = getDeploymentLocalData(dseq) || {};
   data.owner = address;
   data.manifest = manifest;

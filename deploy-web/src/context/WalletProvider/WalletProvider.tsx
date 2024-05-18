@@ -1,26 +1,26 @@
+"use client";
 import React, { useRef } from "react";
 import { useState, useEffect } from "react";
 import { SigningStargateClient } from "@cosmjs/stargate";
 import { uAktDenom } from "@src/utils/constants";
 import { EncodeObject } from "@cosmjs/proto-signing";
-import { useSnackbar } from "notistack";
-import { Snackbar } from "@src/components/shared/Snackbar";
 import { TransactionModal } from "@src/components/layout/TransactionModal";
-import { OpenInNew } from "@mui/icons-material";
-import { useTheme } from "@mui/material";
 import { event } from "nextjs-google-analytics";
 import { AnalyticsEvents } from "@src/utils/analytics";
-import { useRouter } from "next/router";
+import { usePathname, useRouter } from "next/navigation";
 import { UrlService } from "@src/utils/urlUtils";
 import { useSettings } from "../SettingsProvider";
 import axios from "axios";
-import { LinkTo } from "@src/components/shared/LinkTo";
 import { useUsdcDenom } from "@src/hooks/useDenom";
-import { getSelectedNetwork } from "@src/hooks/useSelectedNetwork";
+import { getSelectedNetwork, useSelectedNetwork } from "@src/hooks/useSelectedNetwork";
 import { LocalWalletDataType } from "@src/utils/walletUtils";
 import { useSelectedChain } from "../CustomChainProvider";
 import { customRegistry } from "@src/utils/customRegistry";
 import { useManager } from "@cosmos-kit/react";
+import { OpenNewWindow } from "iconoir-react";
+import { SnackbarKey, useSnackbar } from "notistack";
+import { Snackbar } from "@src/components/shared/Snackbar";
+import Link from "next/link";
 
 type Balances = {
   uakt: number;
@@ -30,7 +30,7 @@ type Balances = {
 type ContextType = {
   address: string;
   walletName: string;
-  walletBalances: Balances;
+  walletBalances: Balances | null;
   isWalletConnected: boolean;
   isWalletLoaded: boolean;
   connectWallet: () => Promise<void>;
@@ -40,27 +40,17 @@ type ContextType = {
   refreshBalances: (address?: string) => Promise<Balances>;
 };
 
-const WalletProviderContext = React.createContext<ContextType>({
-  address: null,
-  walletName: null,
-  walletBalances: null,
-  isWalletConnected: false,
-  isWalletLoaded: false,
-  connectWallet: null,
-  logout: null,
-  setIsWalletLoaded: null,
-  signAndBroadcastTx: null,
-  refreshBalances: null
-});
+const WalletProviderContext = React.createContext<ContextType>({} as ContextType);
 
 export const WalletProvider = ({ children }) => {
-  const [walletBalances, setWalletBalances] = useState<Balances>(null);
+  const [walletBalances, setWalletBalances] = useState<Balances | null>(null);
   const [isWalletLoaded, setIsWalletLoaded] = useState<boolean>(true);
   const [isBroadcastingTx, setIsBroadcastingTx] = useState<boolean>(false);
   const [isWaitingForApproval, setIsWaitingForApproval] = useState<boolean>(false);
   const { enqueueSnackbar, closeSnackbar } = useSnackbar();
-  const sigingClient = useRef<SigningStargateClient>(null);
+  const sigingClient = useRef<SigningStargateClient | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
   const { settings } = useSettings();
   const usdcIbcDenom = useUsdcDenom();
   const { disconnect, getOfflineSigner, isWalletConnected, address: walletAddress, connect, username, estimateFee, sign, broadcast } = useSelectedChain();
@@ -88,14 +78,14 @@ export const WalletProvider = ({ children }) => {
     const selectedNetwork = getSelectedNetwork();
 
     const offlineSigner = getOfflineSigner();
-    let rpc = settings?.rpcEndpoint ? settings?.rpcEndpoint : selectedNetwork.rpcEndpoint;
+    let rpc = settings?.rpcEndpoint ? settings?.rpcEndpoint : (selectedNetwork.rpcEndpoint as string);
 
     try {
       await axios.get(`${rpc}/abci_info`);
     } catch (error) {
       // If the rpc node has cors enabled, switch to the backup rpc cosmos.directory
       if (error.code === "ERR_NETWORK" || error?.response?.status === 0) {
-        rpc = selectedNetwork.rpcEndpoint;
+        rpc = selectedNetwork.rpcEndpoint as string;
       }
     }
 
@@ -142,22 +132,18 @@ export const WalletProvider = ({ children }) => {
   // Update balances on wallet address change
   useEffect(() => {
     if (walletAddress) {
-      // Redirect to deployment list if on deployment detail page
-      if (router.pathname.startsWith("/deployments/")) {
-        router.push(UrlService.deploymentList());
-      }
       loadWallet();
     }
   }, [walletAddress]);
 
   async function loadWallet(): Promise<void> {
     const selectedNetwork = getSelectedNetwork();
-    const storageWallets = JSON.parse(localStorage.getItem(`${selectedNetwork.id}/wallets`)) as LocalWalletDataType[];
+    const storageWallets = JSON.parse(localStorage.getItem(`${selectedNetwork.id}/wallets`) || "[]") as LocalWalletDataType[];
 
     let currentWallets = storageWallets ?? [];
 
     if (!currentWallets.some(x => x.address === walletAddress)) {
-      currentWallets.push({ name: username, address: walletAddress, selected: true });
+      currentWallets.push({ name: username || "", address: walletAddress as string, selected: true });
     }
 
     currentWallets = currentWallets.map(x => ({ ...x, selected: x.address === walletAddress }));
@@ -171,7 +157,7 @@ export const WalletProvider = ({ children }) => {
 
   async function signAndBroadcastTx(msgs: EncodeObject[]): Promise<boolean> {
     setIsWaitingForApproval(true);
-    let pendingSnackbarKey = null;
+    let pendingSnackbarKey: SnackbarKey | null = null;
     try {
       const estimatedFees = await estimateFee(msgs);
 
@@ -179,6 +165,7 @@ export const WalletProvider = ({ children }) => {
 
       setIsWaitingForApproval(false);
       setIsBroadcastingTx(true);
+
       pendingSnackbarKey = enqueueSnackbar(<Snackbar title="Broadcasting transaction..." subTitle="Please wait a few seconds" showLoading />, {
         variant: "info",
         autoHideDuration: null
@@ -289,7 +276,7 @@ export const WalletProvider = ({ children }) => {
     const client = await getStargateClient();
 
     if (client) {
-      const balances = await client.getAllBalances(_address);
+      const balances = await client.getAllBalances(_address as string);
       const uaktBalance = balances.find(b => b.denom === uAktDenom);
       const usdcBalance = balances.find(b => b.denom === usdcIbcDenom);
 
@@ -312,8 +299,8 @@ export const WalletProvider = ({ children }) => {
   return (
     <WalletProviderContext.Provider
       value={{
-        address: walletAddress,
-        walletName: username,
+        address: walletAddress as string,
+        walletName: username as string,
         walletBalances,
         isWalletConnected: isWalletConnected,
         isWalletLoaded,
@@ -337,20 +324,18 @@ export function useWallet() {
 }
 
 const TransactionSnackbarContent = ({ snackMessage, transactionHash }) => {
-  const theme = useTheme();
-  const txUrl = transactionHash && `https://stats.akash.network/transactions/${transactionHash}`;
+  const selectedNetwork = useSelectedNetwork();
+  const txUrl = transactionHash && `https://stats.akash.network/transactions/${transactionHash}?network=${selectedNetwork.id}`;
 
   return (
     <>
       {snackMessage}
       {snackMessage && <br />}
       {txUrl && (
-        <LinkTo
-          sx={{ display: "flex", alignItems: "center", color: `${theme.palette.success.contrastText}!important` }}
-          onClick={() => window.open(txUrl, "_blank")}
-        >
-          View transaction <OpenInNew sx={{ fontSize: "1rem", marginLeft: ".5rem" }} />
-        </LinkTo>
+        <Link href={txUrl} target="_blank" className="inline-flex items-center space-x-2 !text-white">
+          <span>View transaction</span>
+          <OpenNewWindow className="text-xs" />
+        </Link>
       )}
     </>
   );

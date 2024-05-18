@@ -21,7 +21,9 @@ export interface ProviderList {
   uptime30d: number;
   isValidVersion: boolean;
   isOnline: boolean;
+  lastOnlineDate: Date;
   isAudited: boolean;
+  gpuModels: { vendor: string; model: string; ram: string; interface: string }[];
   activeStats: {
     cpu: number;
     gpu: number;
@@ -75,11 +77,11 @@ export interface ProviderList {
 }
 
 export interface ProviderDetail extends ProviderList {
-  uptime: Array<{
+  uptime: {
     id: string;
     isOnline: boolean;
     checkDate: Date;
-  }>;
+  }[];
 }
 
 export type ProviderAttributesSchema = {

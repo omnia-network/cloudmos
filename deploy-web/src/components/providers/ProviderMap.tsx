@@ -1,20 +1,12 @@
-import { makeStyles } from "tss-react/mui";
+"use client";
 import { ApiProviderList } from "@src/types/provider";
 import { ComposableMap, Geographies, Geography, Marker, Point, ZoomableGroup } from "react-simple-maps";
-import { useState } from "react";
-import { Box, IconButton, useTheme } from "@mui/material";
-import { CustomTooltip } from "../shared/CustomTooltip";
+import { useEffect, useState } from "react";
+import { CustomNoDivTooltip } from "../shared/CustomTooltip";
 import Link from "next/link";
 import { UrlService } from "@src/utils/urlUtils";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import AddIcon from "@mui/icons-material/Add";
-import RemoveIcon from "@mui/icons-material/Remove";
-
-const useStyles = makeStyles()(theme => ({
-  circle: {
-    cursor: "pointer"
-  }
-}));
+import { Button } from "@src/components/ui/button";
+import { Minus, Plus, Restart } from "iconoir-react";
 
 type Props = {
   initialZoom?: number;
@@ -26,18 +18,19 @@ const minZoom = 1;
 const maxZoom = 8;
 
 export const ProviderMap: React.FunctionComponent<Props> = ({ providers, initialZoom = minZoom, initialCoordinates = [0, 0] }) => {
-  const { classes } = useStyles();
   const [dotSize, setDotSize] = useState({ r: 5, w: 1 });
-  const theme = useTheme();
-  const activeProviders = providers.filter(x => x.isOnline || x.isOnline);
-  const bgColor = theme.palette.mode === "dark" ? theme.palette.grey[800] : theme.palette.grey[400];
+  const activeProviders = providers.filter(x => x.isOnline);
   const [position, setPosition] = useState({ coordinates: initialCoordinates, zoom: initialZoom });
   const isInitialPosition =
     position.coordinates[0] === initialCoordinates[0] && position.coordinates[1] === initialCoordinates[1] && position.zoom === initialZoom;
 
+  useEffect(() => {
+    handleDotSize(position.zoom);
+  }, []);
+
   function resetZoom() {
     setPosition({ coordinates: initialCoordinates, zoom: initialZoom });
-    setDotSize({ r: 5, w: 1 });
+    handleDotSize(initialZoom);
   }
 
   function handleMoveEnd(position: { coordinates: [number, number]; zoom: number }) {
@@ -75,21 +68,19 @@ export const ProviderMap: React.FunctionComponent<Props> = ({ providers, initial
   };
 
   return (
-    <Box sx={{ position: "relative", display: "flex" }}>
-      <Box
-        sx={{ position: "absolute", padding: ".5rem", backgroundColor: `rgba(0,0,0,0.2)`, borderRadius: ".5rem", left: "50%", transform: "translateX(-50%)" }}
-      >
-        <IconButton onClick={handleZoomIn} disabled={position.zoom === maxZoom} color="secondary" size="small">
-          <AddIcon />
-        </IconButton>
-        <IconButton onClick={handleZoomOut} disabled={position.zoom === minZoom} color="secondary" sx={{ marginLeft: ".5rem" }} size="small">
-          <RemoveIcon />
-        </IconButton>
+    <div className="relative flex">
+      <div className="absolute left-1/2 -translate-x-1/2 transform space-x-2 rounded-md bg-black bg-opacity-20 p-2">
+        <Button onClick={handleZoomIn} disabled={position.zoom === maxZoom} size="icon" variant="ghost">
+          <Plus />
+        </Button>
+        <Button onClick={handleZoomOut} disabled={position.zoom === minZoom} size="icon" variant="ghost">
+          <Minus />
+        </Button>
 
-        <IconButton onClick={() => resetZoom()} sx={{ marginLeft: ".5rem" }} disabled={isInitialPosition} size="small">
-          <RestartAltIcon />
-        </IconButton>
-      </Box>
+        <Button onClick={() => resetZoom()} disabled={isInitialPosition} size="icon" variant="ghost">
+          <Restart />
+        </Button>
+      </div>
       <ComposableMap projectionConfig={{ rotate: [-10, 0, 0] }}>
         <ZoomableGroup
           zoom={position.zoom}
@@ -109,7 +100,7 @@ export const ProviderMap: React.FunctionComponent<Props> = ({ providers, initial
                 <Geography
                   key={geo.rsmKey}
                   geography={geo}
-                  fill={bgColor}
+                  className="fill-neutral-500 dark:fill-neutral-800"
                   style={{
                     default: { outline: "none" },
                     hover: { outline: "none" },
@@ -123,24 +114,24 @@ export const ProviderMap: React.FunctionComponent<Props> = ({ providers, initial
             return (
               <Link key={owner} href={UrlService.providerDetail(owner)}>
                 <Marker coordinates={[parseFloat(ipLon), parseFloat(ipLat)]}>
-                  <CustomTooltip
+                  <CustomNoDivTooltip
                     title={
-                      <Box>
-                        <Box>{name}</Box>
-                        <Box>
+                      <div>
+                        <div className="text-lg">{name}</div>
+                        <strong>
                           {ipRegion}, {ipCountryCode}
-                        </Box>
-                      </Box>
+                        </strong>
+                      </div>
                     }
                   >
-                    <circle className={classes.circle} fill={theme.palette.secondary.main} stroke="#FFF" strokeWidth={dotSize.w} r={dotSize.r} />
-                  </CustomTooltip>
+                    <circle className="cursor-pointer fill-primary" stroke="#FFF" strokeWidth={dotSize.w} r={dotSize.r} />
+                  </CustomNoDivTooltip>
                 </Marker>
               </Link>
             );
           })}
         </ZoomableGroup>
       </ComposableMap>
-    </Box>
+    </div>
   );
 };

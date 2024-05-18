@@ -205,7 +205,9 @@ export interface ApiProviderList {
   uptime30d: number;
   isValidVersion: boolean;
   isOnline: boolean;
+  lastOnlineDate: string;
   isAudited: boolean;
+  gpuModels: { vendor: string; model: string; ram: string; interface: string }[];
   activeStats: {
     cpu: number;
     gpu: number;
@@ -267,7 +269,7 @@ export interface ApiProviderDetail extends ApiProviderList {
   uptime: Array<{
     id: string;
     isOnline: boolean;
-    checkDate: Date;
+    checkDate: string;
   }>;
 }
 

@@ -36,6 +36,7 @@ const route = createRoute({
               uptime30d: z.number(),
               isValidVersion: z.boolean(),
               isOnline: z.boolean(),
+              lastOnlineDate: z.string().nullable(),
               isAudited: z.boolean(),
               activeStats: z.object({
                 cpu: z.number(),
@@ -55,6 +56,14 @@ const route = createRoute({
                 memory: z.number(),
                 storage: z.number()
               }),
+              gpuModels: z.array(
+                z.object({
+                  vendor: z.string(),
+                  model: z.string(),
+                  ram: z.string(),
+                  interface: z.string()
+                })
+              ),
               attributes: z.array(
                 z.object({
                   key: z.string(),

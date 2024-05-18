@@ -1,84 +1,27 @@
-import Drawer from "@mui/material/Drawer";
-import Box from "@mui/material/Box";
-import { useTheme } from "@mui/material/styles";
-import HomeIcon from "@mui/icons-material/Home";
-import DnsIcon from "@mui/icons-material/Dns";
+"use client";
 import React, { ReactNode, useState } from "react";
-import { accountBarHeight, closedDrawerWidth, drawerWidth } from "@src/utils/constants";
-import getConfig from "next/config";
-import { makeStyles } from "tss-react/mui";
+import { closedDrawerWidth, drawerWidth } from "@src/utils/constants";
 import { UrlService } from "@src/utils/urlUtils";
-import CloudIcon from "@mui/icons-material/Cloud";
 import { SidebarGroupMenu } from "./SidebarGroupMenu";
-import { Button, Chip, IconButton, Typography, useMediaQuery } from "@mui/material";
-import CollectionsIcon from "@mui/icons-material/Collections";
-import SettingsIcon from "@mui/icons-material/Settings";
 import Link from "next/link";
-import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
-import { LinkTo } from "../shared/LinkTo";
-import YouTubeIcon from "@mui/icons-material/YouTube";
-import TwitterIcon from "@mui/icons-material/Twitter";
-import LaunchIcon from "@mui/icons-material/Launch";
-import GitHubIcon from "@mui/icons-material/GitHub";
-import { DiscordIcon } from "../shared/icons";
 import { NodeStatusBar } from "./NodeStatusBar";
-import MenuOpenIcon from "@mui/icons-material/MenuOpen";
-import MenuIcon from "@mui/icons-material/Menu";
-import ConstructionIcon from "@mui/icons-material/Construction";
-import HelpIcon from "@mui/icons-material/Help";
 import { useAtom } from "jotai";
 import sdlStore from "@src/store/sdlStore";
 import { MobileSidebarUser } from "./MobileSidebarUser";
+import { Button, buttonVariants } from "../ui/button";
+import { cn } from "@src/utils/styleUtils";
+import { Rocket, Github, X as TwitterX, Discord, Menu, MenuScale, Youtube } from "iconoir-react";
+import { Home, Cloud, MultiplePages, Tools, Server, OpenInWindow, HelpCircle, Settings } from "iconoir-react";
 import { ISidebarGroupMenu } from "@src/types";
+import getConfig from "next/config";
+import { ModeToggle } from "./ModeToggle";
+import { useTheme as useMuiTheme } from "@mui/material/styles";
+import Drawer from "@mui/material/Drawer";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import Image from "next/image";
+import { Badge } from "../ui/badge";
 
 const { publicRuntimeConfig } = getConfig();
-
-const useStyles = makeStyles()(theme => ({
-  version: {
-    fontSize: ".7rem",
-    fontWeight: "bold",
-    color: theme.palette.grey[500],
-    textAlign: "left"
-  },
-  comingSoonTooltip: {
-    backgroundColor: theme.palette.secondary.main
-  },
-  akashImage: {
-    height: "12px"
-  },
-  socialLinks: {
-    display: "flex",
-    transition: ".3s all ease",
-    margin: 0,
-    padding: 0,
-    "& li": {
-      margin: "0 .5rem",
-      display: "flex",
-      alignItems: "center"
-    },
-    "& path": {
-      fill: theme.palette.mode === "dark" ? theme.palette.primary.contrastText : theme.palette.common.black,
-      transition: ".3s all ease"
-    }
-  },
-  socialIcon: {
-    height: "1.5rem",
-    width: "1.5rem",
-    display: "block",
-    margin: "0 .2rem",
-    "&:hover": {
-      color: theme.palette.mode === "dark" ? theme.palette.grey[500] : theme.palette.primary.main,
-      "& path": {
-        fill: theme.palette.mode === "dark" ? theme.palette.grey[500] : theme.palette.primary.main
-      }
-    }
-  },
-  caption: {
-    color: theme.palette.mode === "dark" ? theme.palette.grey["400"] : theme.palette.grey["600"],
-    fontWeight: "bold",
-    fontSize: ".6rem"
-  }
-}));
 
 type Props = {
   children?: ReactNode;
@@ -89,12 +32,11 @@ type Props = {
 };
 
 export const Sidebar: React.FunctionComponent<Props> = ({ isMobileOpen, handleDrawerToggle, isNavOpen, onOpenMenuClick }) => {
-  const { classes } = useStyles();
-  const theme = useTheme();
   const [isHovering, setIsHovering] = useState(false);
   const _isNavOpen = isNavOpen || isHovering;
   const [, setDeploySdl] = useAtom(sdlStore.deploySdl);
-  const smallScreen = useMediaQuery(theme.breakpoints.down("md"));
+  const muiTheme = useMuiTheme();
+  const smallScreen = useMediaQuery(muiTheme.breakpoints.down("md"));
 
   const routeGroups: ISidebarGroupMenu[] = [
     {
@@ -102,27 +44,46 @@ export const Sidebar: React.FunctionComponent<Props> = ({ isMobileOpen, handleDr
       routes: [
         {
           title: "Home",
-          icon: props => <HomeIcon {...props} />,
+          icon: props => <Home {...props} />,
           url: UrlService.home(),
           activeRoutes: [UrlService.home()]
         },
         {
           title: "Deployments",
-          icon: props => <CloudIcon {...props} />,
+          icon: props => <Cloud {...props} />,
           url: UrlService.deploymentList(),
           activeRoutes: [UrlService.deploymentList(), "/deployments", "/new-deployment"]
         },
-        { title: "Templates", icon: props => <CollectionsIcon {...props} />, url: UrlService.templates(), activeRoutes: [UrlService.templates()] },
+        {
+          title: "Templates",
+          icon: props => <MultiplePages {...props} />,
+          url: UrlService.templates(),
+          activeRoutes: [UrlService.templates()]
+        },
         {
           title: "SDL Builder",
-          icon: props => <ConstructionIcon {...props} />,
+          icon: props => <Tools {...props} />,
           url: UrlService.sdlBuilder(),
           activeRoutes: [UrlService.sdlBuilder()]
         },
-        { title: "Providers", icon: props => <DnsIcon {...props} />, url: UrlService.providers(), activeRoutes: [UrlService.providers()] },
-
-        { title: "FAQ", icon: props => <HelpIcon {...props} />, url: UrlService.faq(), activeRoutes: [UrlService.faq()] },
-        { title: "Settings", icon: props => <SettingsIcon {...props} />, url: UrlService.settings(), activeRoutes: [UrlService.settings()] }
+        {
+          title: "Providers",
+          icon: props => <Server {...props} />,
+          url: UrlService.providers(),
+          activeRoutes: [UrlService.providers()]
+        },
+        {
+          title: "FAQ",
+          icon: props => <HelpCircle {...props} />,
+          url: UrlService.faq(),
+          activeRoutes: [UrlService.faq()]
+        },
+        {
+          title: "Settings",
+          icon: props => <Settings {...props} />,
+          url: UrlService.settings(),
+          activeRoutes: [UrlService.settings()]
+        }
       ]
     },
     {
@@ -130,22 +91,36 @@ export const Sidebar: React.FunctionComponent<Props> = ({ isMobileOpen, handleDr
       routes: [
         {
           title: "Akash Network",
-          icon: props => <img src="/images/akash-logo.svg" alt="Akash Logo" style={{ height: "20px" }} {...props} />,
+          icon: props => <Image src="/images/akash-logo.svg" alt="Akash Logo" quality={100} width={20} height={20} {...props} />,
           url: "https://akash.network",
           activeRoutes: [],
           target: "_blank"
         },
         {
           title: "Stats",
-          icon: props => <LaunchIcon {...props} />,
+          icon: props => <OpenInWindow {...props} />,
           url: "https://stats.akash.network",
           activeRoutes: [],
           target: "_blank"
         },
         {
           title: "Price Compare",
-          icon: props => <LaunchIcon {...props} />,
+          icon: props => <OpenInWindow {...props} />,
           url: "https://akash.network/about/pricing/custom/",
+          activeRoutes: [],
+          target: "_blank"
+        },
+        {
+          title: "API",
+          icon: props => <OpenInWindow {...props} />,
+          url: "https://api.cloudmos.io/v1/swagger",
+          activeRoutes: [],
+          target: "_blank"
+        },
+        {
+          title: "Docs",
+          icon: props => <OpenInWindow {...props} />,
+          url: "https://akash.network/docs",
           activeRoutes: [],
           target: "_blank"
         }
@@ -169,175 +144,107 @@ export const Sidebar: React.FunctionComponent<Props> = ({ isMobileOpen, handleDr
     setDeploySdl(null);
   };
 
-  const version = publicRuntimeConfig?.version && _isNavOpen && (
-    <Box sx={{ display: "flex", alignItems: "center", flexDirection: "column", justifyContent: "center" }}>
-      <Typography
-        variant="caption"
-        sx={{
-          color: theme.palette.mode === "dark" ? theme.palette.grey["400"] : theme.palette.grey["600"],
-          fontWeight: "bold",
-          fontSize: ".6rem"
-        }}
-      >
-        <strong>v{publicRuntimeConfig?.version}</strong>
-      </Typography>
-
-      <Chip
-        label="beta"
-        color="secondary"
-        size="small"
-        sx={{
-          height: "12px",
-          fontSize: "10px",
-          fontWeight: "bold"
-        }}
-      />
-    </Box>
-  );
-
   const drawer = (
-    <Box
-      sx={{
-        height: { xs: "100%", sx: "100%", md: `calc(100% - ${accountBarHeight}px)` },
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "space-between",
-        overflowY: "auto",
-        flexShrink: 0,
-        borderRight: `1px solid ${theme.palette.mode === "dark" ? theme.palette.grey[900] : theme.palette.grey[300]}`,
-        transition: "width .3s ease",
-        overflowX: "hidden",
-        width: _isNavOpen ? drawerWidth : closedDrawerWidth
-      }}
+    <div
+      style={{ width: _isNavOpen ? drawerWidth : closedDrawerWidth }}
+      className="box-border flex h-full flex-shrink-0 flex-col items-center justify-between overflow-y-auto overflow-x-hidden border-r-[1px] border-muted-foreground/20 bg-popover transition-[width] duration-300 ease-in-out dark:bg-background md:h-[calc(100%-57px)]"
     >
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: _isNavOpen ? ".5rem" : ".5rem 0",
-          width: "100%"
-        }}
-      >
-        {_isNavOpen ? (
-          <Button
-            component={Link}
-            href={UrlService.newDeployment()}
-            size="large"
-            variant="contained"
-            color="secondary"
-            fullWidth
-            sx={{ height: "45px", lineHeight: "1rem" }}
-            onClick={onDeployClick}
-          >
-            Deploy <RocketLaunchIcon sx={{ marginLeft: "1rem" }} fontSize="small" />
-          </Button>
-        ) : (
-          <Button
-            size="large"
-            component={Link}
-            href={UrlService.newDeployment()}
-            variant="contained"
-            color="secondary"
-            sx={{ padding: ".5rem 0", minWidth: _isNavOpen ? "initial" : 0, width: "45px", height: "45px" }}
-            onClick={onDeployClick}
-          >
-            <RocketLaunchIcon fontSize="medium" />
-          </Button>
-        )}
+      <div className={cn("flex w-full flex-col items-center justify-between", { ["p-2"]: _isNavOpen, ["pb-2 pt-2"]: !_isNavOpen })}>
+        <Link
+          className={cn(buttonVariants({ variant: "default", size: _isNavOpen ? "lg" : "icon" }), "h-[45px] w-full leading-4", {
+            ["h-[45px] w-[45px] min-w-0 pb-2 pt-2"]: !_isNavOpen
+          })}
+          href={UrlService.newDeployment()}
+          onClick={onDeployClick}
+        >
+          {_isNavOpen && "Deploy "}
+          <Rocket className={cn("rotate-45", { ["ml-4"]: _isNavOpen })} fontSize="small" />
+        </Link>
 
         {routeGroups.map((g, i) => (
           <SidebarGroupMenu key={i} group={g} hasDivider={g.hasDivider} isNavOpen={_isNavOpen} />
         ))}
-      </Box>
+      </div>
 
-      <Box sx={{ width: "100%" }}>
+      <div className="w-full">
         {smallScreen && <MobileSidebarUser />}
 
         {_isNavOpen && (
-          <Box sx={{ padding: "0 1rem 1rem" }}>
+          <div className="pb-4 pl-4 pr-4 space-y-2">
             <NodeStatusBar />
 
-            {!smallScreen && (
-              <Button
-                onClick={() =>
-                  window.open(
-                    "https://wallet.keplr.app/chains/akash?modal=validator&chain=akashnet-2&validator_address=akashvaloper14mt78hz73d9tdwpdvkd59ne9509kxw8yj7qy8f",
-                    "_blank"
-                  )
-                }
-                size="small"
-                fullWidth
+            <div className="flex items-center justify-center space-x-1 pt-4">
+              <Link
+                target="_blank"
+                rel="noreferrer"
+                href="https://discord.akash.network"
+                className={cn(buttonVariants({ variant: "text", size: "icon" }), "h-8 w-8")}
               >
-                <Typography variant="caption" className={classes.caption} sx={{ display: "flex", alignItems: "center", whiteSpace: "nowrap" }}>
-                  Support our Validator <LaunchIcon fontSize="small" sx={{ marginLeft: ".2rem" }} />
-                </Typography>
-              </Button>
+                <Discord className="h-5 w-5" />
+                <span className="sr-only">Discord</span>
+              </Link>
+
+              <Link
+                target="_blank"
+                rel="noreferrer"
+                href="https://twitter.com/akashnet_"
+                className={cn(buttonVariants({ variant: "text", size: "icon" }), "h-8 w-8")}
+              >
+                <TwitterX className="h-5 w-5" />
+                <span className="sr-only">Twitter</span>
+              </Link>
+
+              <Link
+                target="_blank"
+                rel="noreferrer"
+                href="https://youtube.com/@AkashNetwork?si=cd2P3ZlAa4gNQw0X?sub_confirmation=1"
+                className={cn(buttonVariants({ variant: "text", size: "icon" }), "h-8 w-8")}
+              >
+                <Youtube className="h-5 w-5" />
+                <span className="sr-only">Youtube</span>
+              </Link>
+
+              <Link
+                target="_blank"
+                rel="noreferrer"
+                href="https://github.com/akash-network/cloudmos"
+                className={cn(buttonVariants({ variant: "text", size: "icon" }), "h-8 w-8")}
+              >
+                <Github className="h-5 w-5" />
+                <span className="sr-only">GitHub</span>
+              </Link>
+
+              <ModeToggle />
+            </div>
+
+            {publicRuntimeConfig?.version && _isNavOpen && (
+              <div className="flex flex-row items-center justify-center space-x-4 text-xs font-bold text-muted-foreground">
+                <small>v{publicRuntimeConfig?.version}</small>
+                <Badge className="text-xs leading-3" variant="outline">
+                  <small>Beta</small>
+                </Badge>
+              </div>
             )}
-
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-around", margin: "1rem 0 0" }}>
-              <ul className={classes.socialLinks}>
-                <li>
-                  <LinkTo onClick={() => window.open("https://discord.gg/akash", "_blank")} className={classes.socialLinks}>
-                    <DiscordIcon className={classes.socialIcon} />
-                  </LinkTo>
-                </li>
-                <li>
-                  <LinkTo
-                    onClick={() => window.open("https://www.youtube.com/channel/UC1rgl1y8mtcQoa9R_RWO0UA?sub_confirmation=1", "_blank")}
-                    className={classes.socialLinks}
-                  >
-                    <YouTubeIcon className={classes.socialIcon} />
-                  </LinkTo>
-                </li>
-                <li>
-                  <LinkTo onClick={() => window.open("https://twitter.com/cloudmosio", "_blank")} className={classes.socialLinks}>
-                    <TwitterIcon className={classes.socialIcon} />
-                  </LinkTo>
-                </li>
-                <li>
-                  <LinkTo onClick={() => window.open("https://github.com/akash-network/cloudmos", "_blank")} className={classes.socialLinks}>
-                    <GitHubIcon className={classes.socialIcon} />
-                  </LinkTo>
-                </li>
-              </ul>
-
-              {version}
-            </Box>
-          </Box>
+          </div>
         )}
 
         {!smallScreen && (
-          <Box
-            sx={{
-              padding: ".2rem .75rem",
-              borderTop: `1px solid ${theme.palette.mode === "dark" ? theme.palette.grey[900] : theme.palette.grey[100]}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between"
-            }}
-          >
-            <IconButton size="small" onClick={onToggleMenuClick}>
-              {isNavOpen ? <MenuOpenIcon /> : <MenuIcon />}
-            </IconButton>
-          </Box>
+          <div className="flex items-center justify-between border-t border-muted-foreground/20 px-3 py-1">
+            <Button size="icon" variant="ghost" onClick={onToggleMenuClick}>
+              {isNavOpen ? <MenuScale /> : <Menu />}
+            </Button>
+          </div>
         )}
-      </Box>
-    </Box>
+      </div>
+    </div>
   );
 
   return (
-    <Box
-      component="nav"
-      sx={{
-        position: "fixed",
-        zIndex: 100,
-        width: { md: _isNavOpen || isHovering ? drawerWidth : closedDrawerWidth },
-        flexShrink: { md: 0 }
-      }}
-      aria-label="mailbox folders"
+    <nav
+      className={cn("ease fixed z-[100] bg-header/95 md:flex-shrink-0", {
+        ["md:w-[240px]"]: _isNavOpen || isHovering,
+        ["md:w-[57px]"]: !(_isNavOpen || isHovering)
+      })}
     >
       {/* Mobile Drawer */}
       <Drawer
@@ -345,6 +252,7 @@ export const Sidebar: React.FunctionComponent<Props> = ({ isMobileOpen, handleDr
         open={isMobileOpen}
         disableScrollLock
         onClose={handleDrawerToggle}
+        className="block p-4 md:hidden"
         ModalProps={{
           keepMounted: true // Better open performance on mobile.
         }}
@@ -363,29 +271,20 @@ export const Sidebar: React.FunctionComponent<Props> = ({ isMobileOpen, handleDr
 
       {/* Desktop Drawer */}
       <Drawer
+        className="hidden md:block"
         variant="permanent"
-        sx={{
-          display: { xs: "none", sm: "none", md: "block" },
-          "& .MuiDrawer-paper": {
-            boxSizing: "border-box",
-            width: _isNavOpen || isHovering ? drawerWidth : closedDrawerWidth,
-            overflow: "hidden",
-            marginTop: `${accountBarHeight}px`,
-            transition: "width .3s ease",
-            zIndex: 1000
-          }
-        }}
         onMouseEnter={onDrawerHover}
         onMouseLeave={() => setIsHovering(false)}
         PaperProps={{
-          sx: {
-            border: "none"
-          }
+          className: cn("border-none ease z-[1000] bg-header/95 transition-[width] duration-300 box-border overflow-hidden mt-[57px]", {
+            ["md:w-[240px]"]: _isNavOpen,
+            ["md:w-[57px]"]: !_isNavOpen
+          })
         }}
         open
       >
         {drawer}
       </Drawer>
-    </Box>
+    </nav>
   );
 };

@@ -1,14 +1,15 @@
+"use client";
 import { ReactNode, useEffect, useState } from "react";
-import { Popup } from "../../components/shared/Popup";
-import { Box, Paper, TextField } from "@mui/material";
 import { getSplitText } from "@src/hooks/useShortText";
-import CheckIcon from "@mui/icons-material/Check";
 import { useRemoveAddressName, useSaveAddressName } from "@src/queries/useAddressNames";
-import DeleteIcon from "@mui/icons-material/Delete";
-import { useSnackbar } from "notistack";
-import { Snackbar } from "../../components/shared/Snackbar";
 import { event } from "nextjs-google-analytics";
 import { AnalyticsEvents } from "@src/utils/analytics";
+import { Popup } from "@src/components/shared/Popup";
+import { Bin, Check } from "iconoir-react";
+import { InputWithIcon } from "@src/components/ui/input";
+import { FormPaper } from "@src/components/sdl/FormPaper";
+import { useSnackbar } from "notistack";
+import { Snackbar } from "@src/components/shared/Snackbar";
 
 type Props = {
   open: boolean;
@@ -20,13 +21,14 @@ type Props = {
 
 export const EditAddressBookmarkModal: React.FunctionComponent<Props> = ({ open, address, addressNames, onClose }) => {
   const [customName, setCustomName] = useState<string>("");
-  const { mutate: saveAddress, isLoading: isSaving } = useSaveAddressName(address);
-  const { mutate: deleteAddress, isLoading: isDeleting } = useRemoveAddressName(address);
+  const [_address, setAddress] = useState(address);
+  const { mutate: saveAddress, isLoading: isSaving } = useSaveAddressName(_address);
+  const { mutate: deleteAddress, isLoading: isDeleting } = useRemoveAddressName(_address);
   const { enqueueSnackbar } = useSnackbar();
 
   useEffect(() => {
     if (open) {
-      setCustomName(addressNames[address] || "");
+      setCustomName(addressNames[_address] || "");
     }
   }, [open]);
 
@@ -65,19 +67,18 @@ export const EditAddressBookmarkModal: React.FunctionComponent<Props> = ({ open,
       fullWidth
       open={open}
       variant="custom"
-      title={addressNames[address] ? <>Edit {getSplitText(address)} name</> : <>Add {getSplitText(address)} to Address Book</>}
+      title={addressNames[_address] ? <>Edit {getSplitText(_address)} name</> : <>Add {getSplitText(_address)} to Address Book</>}
       actions={[
         {
           label: (
             <>
-              Remove&nbsp;
-              <DeleteIcon />
+              Remove
+              <Bin className="ml-2 text-xs" />
             </>
           ),
-          color: "secondary",
-          variant: "contained",
+          variant: "ghost",
           side: "left",
-          disabled: isSaving || isDeleting || !(address in addressNames),
+          disabled: isSaving || isDeleting || !(_address in addressNames),
           onClick: onDeleteClick
         },
         {
@@ -92,11 +93,10 @@ export const EditAddressBookmarkModal: React.FunctionComponent<Props> = ({ open,
           label: (
             <>
               Save&nbsp;
-              <CheckIcon />
+              <Check />
             </>
           ),
-          color: "secondary",
-          variant: "contained",
+          variant: "default",
           side: "right",
           disabled: !customName || isSaving || isDeleting,
           onClick: onSaveClick
@@ -106,17 +106,30 @@ export const EditAddressBookmarkModal: React.FunctionComponent<Props> = ({ open,
       maxWidth="sm"
       enableCloseOnBackdropClick={!isSaving && !isDeleting}
     >
-      <Paper elevation={2} sx={{ display: "flex", padding: "1rem" }}>
-        <Box sx={{ flexGrow: 1 }}>
-          <TextField
+      <FormPaper contentClassName="flex items-center p-4 flex-col space-y-2">
+        <div className="w-full">
+          <InputWithIcon
+            label="Address"
+            placeholder="Address"
+            value={_address}
+            onChange={ev => setAddress(ev.target.value)}
+            // Disabled if saving, deleting or if there is an address
+            disabled={isSaving || isDeleting || !!address}
+            className="w-full"
+          />
+        </div>
+
+        <div className="w-full">
+          <InputWithIcon
+            label="Custom name"
             placeholder="Your custom name"
             value={customName}
             onChange={ev => setCustomName(ev.target.value)}
             disabled={isSaving || isDeleting}
-            fullWidth
+            className="w-full"
           />
-        </Box>
-      </Paper>
+        </div>
+      </FormPaper>
     </Popup>
   );
 };

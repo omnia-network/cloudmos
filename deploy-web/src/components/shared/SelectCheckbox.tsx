@@ -1,6 +1,12 @@
-import { Checkbox, FormControl, InputLabel, ListItemIcon, ListItemText, MenuItem, Select } from "@mui/material";
+"use client";
 import { useState } from "react";
-import { makeStyles } from "tss-react/mui";
+import { Checkbox } from "../ui/checkbox";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import ListItemText from "@mui/material/ListItemText";
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -13,44 +19,52 @@ const MenuProps = {
   },
   getContentAnchorEl: null,
   anchorOrigin: {
-    vertical: "bottom",
-    horizontal: "center"
+    vertical: "bottom" as "bottom",
+    horizontal: "center" as "center"
   },
   transformOrigin: {
-    vertical: "top",
-    horizontal: "center"
+    vertical: "top" as "top",
+    horizontal: "center" as "center"
   }
   // variant: "menu"
 };
 
-const useStyles = makeStyles()(theme => ({
-  formControl: {
-    minWidth: "150px",
-    width: "auto"
-  },
-  indeterminateColor: {
-    color: "#f50057"
-  },
-  selectAllText: {
-    fontWeight: 500
-  },
-  selectedAll: {
-    backgroundColor: "rgba(0, 0, 0, 0.08)",
-    "&:hover": {
-      backgroundColor: "rgba(0, 0, 0, 0.08)"
-    }
-  },
-  menuRoot: {
-    padding: ".25rem .5rem",
-    fontSize: ".75rem !important"
-  },
-  checkboxRoot: {
-    padding: "4px"
-  }
-}));
+// const useStyles = makeStyles()(theme => ({
+//   formControl: {
+//     minWidth: "150px",
+//     width: "auto"
+//   },
+//   indeterminateColor: {
+//     color: "#f50057"
+//   },
+//   selectAllText: {
+//     fontWeight: 500
+//   },
+//   selectedAll: {
+//     backgroundColor: "rgba(0, 0, 0, 0.08)",
+//     "&:hover": {
+//       backgroundColor: "rgba(0, 0, 0, 0.08)"
+//     }
+//   },
+//   menuRoot: {
+//     padding: ".25rem .5rem",
+//     fontSize: ".75rem !important"
+//   },
+//   checkboxRoot: {
+//     padding: "4px"
+//   }
+// }));
 
-export const SelectCheckbox = ({ defaultValue, options, onSelectedChange, label, disabled }) => {
-  const { classes } = useStyles();
+interface Props {
+  defaultValue: string[];
+  options: string[];
+  onSelectedChange: (value: string[]) => void;
+  label: string;
+  placeholder?: string;
+  disabled?: boolean;
+}
+
+export const SelectCheckbox = ({ defaultValue, options, onSelectedChange, label, disabled, placeholder }: React.PropsWithChildren<Props>) => {
   const [selected, setSelected] = useState(defaultValue);
   const isAllSelected = options.length > 0 && selected.length === options.length;
 
@@ -66,7 +80,7 @@ export const SelectCheckbox = ({ defaultValue, options, onSelectedChange, label,
   };
 
   return (
-    <FormControl className={classes.formControl}>
+    <FormControl className="w-auto min-w-[150px]">
       <InputLabel id="mutiple-select-label">{label}</InputLabel>
       <Select
         labelId="mutiple-select-label"
@@ -76,35 +90,28 @@ export const SelectCheckbox = ({ defaultValue, options, onSelectedChange, label,
         onChange={handleChange}
         renderValue={selected => selected.join(", ")}
         size="small"
-        // TODO Fix
-        MenuProps={MenuProps as any}
+        MenuProps={MenuProps}
         disabled={disabled}
         variant="outlined"
         classes={{
-          select: classes.menuRoot
+          select: "py-2 px-4 text-xs"
         }}
       >
         <MenuItem
           value="all"
           classes={{
-            root: isAllSelected ? classes.selectedAll : ""
+            root: isAllSelected ? "bg-secondary" : ""
           }}
         >
           <ListItemIcon>
-            <Checkbox
-              classes={{ root: classes.checkboxRoot, indeterminate: classes.indeterminateColor }}
-              checked={isAllSelected}
-              indeterminate={selected.length > 0 && selected.length < options.length}
-              size="small"
-              color="secondary"
-            />
+            <Checkbox checked={isAllSelected} />
           </ListItemIcon>
-          <ListItemText classes={{ primary: classes.selectAllText }} primary="Select All" />
+          <ListItemText classes={{ primary: "font-normal" }} primary="Select All" />
         </MenuItem>
         {options.map(option => (
           <MenuItem key={option} value={option}>
             <ListItemIcon>
-              <Checkbox checked={selected.indexOf(option) > -1} size="small" classes={{ root: classes.checkboxRoot }} color="secondary" />
+              <Checkbox checked={selected.indexOf(option) > -1} />
             </ListItemIcon>
             <ListItemText primary={option} />
           </MenuItem>

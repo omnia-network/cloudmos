@@ -1,74 +1,37 @@
+"use client";
 import { useState, useEffect, useRef, HTMLInputTypeAttribute } from "react";
-import { makeStyles } from "tss-react/mui";
-import { useRouter } from "next/router";
 import { useWallet } from "@src/context/WalletProvider";
 import { ApiProviderDetail } from "@src/types/provider";
-import {
-  Alert,
-  Autocomplete,
-  Box,
-  Button,
-  Checkbox,
-  ClickAwayListener,
-  FormControlLabel,
-  IconButton,
-  InputAdornment,
-  Paper,
-  TextField,
-  Typography
-} from "@mui/material";
-import { Control, Controller, RegisterOptions, useFieldArray, useForm } from "react-hook-form";
+import { Control, Controller, FieldPath, RegisterOptions, useFieldArray, useForm } from "react-hook-form";
 import { ProviderAttributeSchemaDetailValue, ProviderAttributesFormValues, ProviderAttributesSchema } from "@src/types/providerAttributes";
 import { defaultProviderAttributes } from "@src/utils/providerAttributes/data";
 import { CustomTooltip } from "@src/components/shared/CustomTooltip";
-import InfoIcon from "@mui/icons-material/Info";
 import { TransactionMessageData } from "@src/utils/TransactionMessageData";
 import { getUnknownAttributes, mapFormValuesToAttributes } from "@src/utils/providerAttributes/helpers";
-import DeleteIcon from "@mui/icons-material/Delete";
 import { nanoid } from "nanoid";
+import { FormPaper } from "@src/components/sdl/FormPaper";
+import { Alert } from "@src/components/ui/alert";
+import { Button } from "@src/components/ui/button";
+import { InputWithIcon } from "@src/components/ui/input";
+import { Bin, InfoCircle } from "iconoir-react";
+import { CheckboxWithLabel } from "@src/components/ui/checkbox";
+import { cn } from "@src/utils/styleUtils";
+import MultipleSelector, { Option } from "@src/components/ui/multiple-selector";
+import { Label } from "@src/components/ui/label";
+import { FormItem } from "@src/components/ui/form";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@src/components/ui/select";
 
 type Props = {
   provider: Partial<ApiProviderDetail>;
   providerAttributesSchema: ProviderAttributesSchema;
 };
 
-const useStyles = makeStyles()(theme => ({
-  textfieldSpacing: {
-    marginBottom: "1rem"
-  },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2,1fr)",
-    gap: "1rem",
-    [theme.breakpoints.down("sm")]: {
-      gridTemplateColumns: "repeat(1,1fr)"
-    }
-  },
-  paper: {
-    padding: "1rem",
-    marginBottom: "1rem"
-  },
-  title: {
-    marginBottom: "2rem",
-    color: theme.palette.text.secondary
-  }
-}));
-
 export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, providerAttributesSchema }) => {
-  const { classes } = useStyles();
-  const router = useRouter();
+  const [isInit, setIsInit] = useState(false);
   const [error, setError] = useState(null);
-  const formRef = useRef<HTMLFormElement>();
-  const { address, signAndBroadcastTx } = useWallet();
-  const {
-    handleSubmit,
-    reset,
-    control,
-    formState: { isValid, errors },
-    trigger,
-    watch,
-    setValue
-  } = useForm<ProviderAttributesFormValues>({
+  const formRef = useRef<HTMLFormElement>(null);
+  const { signAndBroadcastTx } = useWallet();
+  const { handleSubmit, reset, control, trigger, watch, setValue, formState } = useForm<ProviderAttributesFormValues>({
     defaultValues: {
       ...defaultProviderAttributes
     }
@@ -84,22 +47,24 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
   });
   const { "feat-persistent-storage": featPersistentStorage, "workload-support-chia": workloadSupportChia, "unknown-attributes": _unknownAttributes } = watch();
 
+  console.log(formState);
+
   useEffect(() => {
     const getProviderAttributeTextValue = (key: string) => {
-      return provider.attributes.find(x => x.key === key)?.value || "";
+      return provider?.attributes?.find(x => x.key === key)?.value || "";
     };
 
     const getAttributeOptionValue = (key: string) => {
       const _key = providerAttributesSchema[key].key as string;
       const possibleValues = providerAttributesSchema[key].values as ProviderAttributeSchemaDetailValue[];
-      const attributeValue = provider.attributes.find(x => x.key === _key);
+      const attributeValue = provider?.attributes?.find(x => x.key === _key);
       return possibleValues.find(x => x.key === attributeValue?.value);
     };
 
     const getAttributeMultipleOptionValue = (key: string) => {
       const possibleValues = providerAttributesSchema[key].values as ProviderAttributeSchemaDetailValue[];
 
-      return possibleValues.filter(x => provider.attributes.some(y => x.key === y.key));
+      return possibleValues.filter(x => provider?.attributes?.some(y => x.key === y.key));
     };
 
     const getProviderAttributeValue = (key: keyof ProviderAttributesSchema) => {
@@ -121,49 +86,55 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
       }
     };
 
-    const unknownAttributes = getUnknownAttributes(provider.attributes, providerAttributesSchema);
+    if (providerAttributesSchema && !isInit) {
+      const unknownAttributes = getUnknownAttributes(provider?.attributes || [], providerAttributesSchema);
 
-    setValue("host-uri", provider.hostUri);
-    setValue("host", getProviderAttributeValue("host") as string);
-    setValue("website", getProviderAttributeValue("website") as string);
-    setValue("email", getProviderAttributeValue("email") as string);
-    setValue("organization", getProviderAttributeValue("organization") as string);
-    setValue("status-page", getProviderAttributeValue("status-page") as string);
-    setValue("location-region", getProviderAttributeValue("location-region") as string);
-    setValue("country", getProviderAttributeValue("country") as string);
-    setValue("city", getProviderAttributeValue("city") as string);
-    setValue("timezone", getProviderAttributeValue("timezone") as string);
-    setValue("location-type", getProviderAttributeValue("location-type") as string);
-    setValue("hosting-provider", getProviderAttributeValue("hosting-provider") as string);
-    setValue("hardware-cpu", getProviderAttributeValue("hardware-cpu") as string);
-    setValue("hardware-cpu-arch", getProviderAttributeValue("hardware-cpu-arch") as string);
-    setValue("hardware-gpu", getProviderAttributeValue("hardware-gpu") as string);
-    setValue("hardware-gpu-model", getProviderAttributeValue("hardware-gpu-model") as ProviderAttributeSchemaDetailValue[]);
-    setValue("hardware-disk", getProviderAttributeValue("hardware-disk") as ProviderAttributeSchemaDetailValue[]);
-    setValue("feat-persistent-storage", getProviderAttributeValue("feat-persistent-storage") as boolean);
-    setValue("feat-persistent-storage-type", getProviderAttributeValue("feat-persistent-storage-type") as ProviderAttributeSchemaDetailValue[]);
-    setValue("hardware-memory", getProviderAttributeValue("hardware-memory") as string);
-    setValue("network-provider", getProviderAttributeValue("network-provider") as string);
-    setValue("network-speed-down", getProviderAttributeValue("network-speed-down") as number);
-    setValue("network-speed-up", getProviderAttributeValue("network-speed-up") as number);
-    setValue("tier", getProviderAttributeValue("tier") as string);
-    setValue("feat-endpoint-custom-domain", getProviderAttributeValue("feat-endpoint-custom-domain") as boolean);
-    setValue("workload-support-chia", getProviderAttributeValue("workload-support-chia") as boolean);
-    setValue("workload-support-chia-capabilities", getProviderAttributeValue("workload-support-chia-capabilities") as ProviderAttributeSchemaDetailValue[]);
-    setValue("feat-endpoint-ip", getProviderAttributeValue("feat-endpoint-ip") as boolean);
+      setValue("host-uri", provider?.hostUri || "");
+      setValue("host", getProviderAttributeValue("host") as string);
+      setValue("website", getProviderAttributeValue("website") as string);
+      setValue("email", getProviderAttributeValue("email") as string);
+      setValue("organization", getProviderAttributeValue("organization") as string);
+      setValue("status-page", getProviderAttributeValue("status-page") as string);
+      setValue("location-region", getProviderAttributeValue("location-region") as string);
+      setValue("country", getProviderAttributeValue("country") as string);
+      setValue("city", getProviderAttributeValue("city") as string);
+      setValue("timezone", getProviderAttributeValue("timezone") as string);
+      setValue("location-type", getProviderAttributeValue("location-type") as string);
+      setValue("hosting-provider", getProviderAttributeValue("hosting-provider") as string);
+      setValue("hardware-cpu", getProviderAttributeValue("hardware-cpu") as string);
+      setValue("hardware-cpu-arch", getProviderAttributeValue("hardware-cpu-arch") as string);
+      setValue("hardware-gpu", getProviderAttributeValue("hardware-gpu") as string);
+      setValue("hardware-gpu-model", getProviderAttributeValue("hardware-gpu-model") as ProviderAttributeSchemaDetailValue[]);
+      setValue("hardware-disk", getProviderAttributeValue("hardware-disk") as ProviderAttributeSchemaDetailValue[]);
+      setValue("feat-persistent-storage", getProviderAttributeValue("feat-persistent-storage") as boolean);
+      setValue("feat-persistent-storage-type", getProviderAttributeValue("feat-persistent-storage-type") as ProviderAttributeSchemaDetailValue[]);
+      setValue("hardware-memory", getProviderAttributeValue("hardware-memory") as string);
+      setValue("network-provider", getProviderAttributeValue("network-provider") as string);
+      setValue("network-speed-down", getProviderAttributeValue("network-speed-down") as number);
+      setValue("network-speed-up", getProviderAttributeValue("network-speed-up") as number);
+      setValue("tier", getProviderAttributeValue("tier") as string);
+      setValue("feat-endpoint-custom-domain", getProviderAttributeValue("feat-endpoint-custom-domain") as boolean);
+      setValue("workload-support-chia", getProviderAttributeValue("workload-support-chia") as boolean);
+      setValue("workload-support-chia-capabilities", getProviderAttributeValue("workload-support-chia-capabilities") as ProviderAttributeSchemaDetailValue[]);
+      setValue("feat-endpoint-ip", getProviderAttributeValue("feat-endpoint-ip") as boolean);
 
-    setValue("unknown-attributes", unknownAttributes);
-  }, []);
+      setValue("unknown-attributes", unknownAttributes);
+
+      setIsInit(true);
+    }
+  }, [providerAttributesSchema, isInit]);
 
   const onSubmit = async (data: ProviderAttributesFormValues) => {
     setError(null);
+
+    debugger;
 
     try {
       const attributes = mapFormValuesToAttributes(data, providerAttributesSchema);
       console.log(data, attributes);
 
       try {
-        const message = TransactionMessageData.getUpdateProviderMsg(provider.owner, data["host-uri"], attributes, {
+        const message = TransactionMessageData.getUpdateProviderMsg(provider?.owner || "", data["host-uri"], attributes, {
           email: data.email,
           website: data.website
         });
@@ -178,10 +149,8 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} ref={formRef} autoComplete="off">
-      <Paper className={classes.paper}>
-        <Typography variant="body1" className={classes.title}>
-          General info
-        </Typography>
+      <FormPaper className="mb-4">
+        <p className="mb-8 text-lg text-primary">General info</p>
 
         <Controller
           control={control}
@@ -190,38 +159,34 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
             required: "Host URI is required"
           }}
           render={({ field, fieldState }) => (
-            <TextField
+            <InputWithIcon
               type="text"
-              variant="outlined"
+              // variant="outlined"
               label="Host URI"
               color="secondary"
               tabIndex={0}
-              error={!!fieldState.error}
-              helperText={fieldState.error?.message}
-              fullWidth
+              error={fieldState.error?.message}
+              // helperText={fieldState.error?.message}
+              // fullWidth
               value={field.value}
-              className={classes.textfieldSpacing}
-              size="small"
+              className="mb-4"
+              // size="small"
               onChange={event => field.onChange(event.target.value || "")}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <CustomTooltip arrow title="Host URI is the URI of the host that is running the provider. It is used to identify the provider.">
-                      <InfoIcon color="disabled" fontSize="small" />
-                    </CustomTooltip>
-                  </InputAdornment>
-                )
-              }}
+              endIcon={
+                <CustomTooltip title="Host URI is the URI of the host that is running the provider. It is used to identify the provider.">
+                  <InfoCircle className="ml-2 text-xs text-muted-foreground" />
+                </CustomTooltip>
+              }
             />
           )}
         />
 
-        <Box className={classes.grid}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/** LEFT COLUMN */}
-          <Box>
+          <div>
             <ProviderTextField
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Host"
               name="host"
               providerAttributesSchema={providerAttributesSchema}
@@ -230,7 +195,7 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
             <ProviderTextField
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Website"
               name="website"
               providerAttributesSchema={providerAttributesSchema}
@@ -239,7 +204,7 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
             <ProviderTextField
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Status Page"
               name="status-page"
               providerAttributesSchema={providerAttributesSchema}
@@ -248,7 +213,7 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
             <ProviderTextField
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Country"
               name="country"
               providerAttributesSchema={providerAttributesSchema}
@@ -262,7 +227,7 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
             <ProviderSelect
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Timezone"
               name="timezone"
               providerAttributesSchema={providerAttributesSchema}
@@ -271,18 +236,18 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
             <ProviderTextField
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Hosting Provider"
               name="hosting-provider"
               providerAttributesSchema={providerAttributesSchema}
               requiredMessage="Hosting provider is required."
             />
-          </Box>
+          </div>
           {/** RIGHT COLUMN */}
-          <Box>
+          <div>
             <ProviderTextField
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Email"
               name="email"
               type="email"
@@ -292,7 +257,7 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
             <ProviderTextField
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Organization"
               name="organization"
               providerAttributesSchema={providerAttributesSchema}
@@ -301,7 +266,7 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
             <ProviderSelect
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Location Region"
               name="location-region"
               providerAttributesSchema={providerAttributesSchema}
@@ -310,7 +275,7 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
             <ProviderTextField
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="City"
               name="city"
               providerAttributesSchema={providerAttributesSchema}
@@ -321,7 +286,7 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
             <ProviderSelect
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Location type"
               name="location-type"
               providerAttributesSchema={providerAttributesSchema}
@@ -330,27 +295,25 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
             <ProviderSelect
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Tier"
               name="tier"
               providerAttributesSchema={providerAttributesSchema}
               requiredMessage="Tier is required."
             />
-          </Box>
-        </Box>
-      </Paper>
+          </div>
+        </div>
+      </FormPaper>
 
-      <Paper className={classes.paper}>
-        <Typography variant="body1" className={classes.title}>
-          Hardware specifications
-        </Typography>
+      <FormPaper className="mb-4">
+        <p className="mb-8 text-lg text-primary">Hardware specifications</p>
 
-        <Box className={classes.grid}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/** LEFT COLUMN */}
-          <Box>
+          <div>
             <ProviderSelect
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="GPU"
               name="hardware-gpu"
               providerAttributesSchema={providerAttributesSchema}
@@ -358,7 +321,7 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
             />
             <ProviderSelect
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="CPU"
               name="hardware-cpu"
               providerAttributesSchema={providerAttributesSchema}
@@ -367,7 +330,7 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
             <ProviderSelect
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Memory (RAM)"
               name="hardware-memory"
               providerAttributesSchema={providerAttributesSchema}
@@ -377,14 +340,14 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
             <ProviderCheckbox
               control={control}
               providerAttributesSchema={providerAttributesSchema}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Persistent storage"
               name="feat-persistent-storage"
             />
 
             <ProviderTextField
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Network Speed Download"
               name="network-speed-down"
               providerAttributesSchema={providerAttributesSchema}
@@ -394,81 +357,79 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
 
             <ProviderTextField
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Network Provider"
               name="network-provider"
               providerAttributesSchema={providerAttributesSchema}
               requiredMessage="Network provider is required."
             />
-          </Box>
+          </div>
 
           {/** RIGHT COLUMN */}
-          <Box>
-            <ProviderSelect
+          <div>
+            <ProviderMultiSelect
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="GPU models"
               name="hardware-gpu-model"
               providerAttributesSchema={providerAttributesSchema}
               requiredMessage="GPU models is required."
-              multiple
+              optionName="hardware-gpu-model"
             />
 
             <ProviderSelect
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="CPU architecture"
               name="hardware-cpu-arch"
               providerAttributesSchema={providerAttributesSchema}
               requiredMessage="CPU architecture is required."
             />
 
-            <ProviderSelect
+            <ProviderMultiSelect
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Disk Storage"
               name="hardware-disk"
-              multiple
               providerAttributesSchema={providerAttributesSchema}
               requiredMessage="At least one disk storage is required."
+              optionName="hardware-disk"
             />
 
-            <ProviderSelect
+            <ProviderMultiSelect
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Persistent Disk Storage"
               name="feat-persistent-storage-type"
-              multiple
               providerAttributesSchema={providerAttributesSchema}
               requiredMessage="At least one persistent disk storage is required."
               required={!!featPersistentStorage}
+              optionName="feat-persistent-storage-type"
             />
 
             <ProviderTextField
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Network Speed Upload"
               name="network-speed-up"
               providerAttributesSchema={providerAttributesSchema}
               requiredMessage="Network speed upload is required."
               type="number"
             />
-          </Box>
-        </Box>
-      </Paper>
+          </div>
+        </div>
+      </FormPaper>
 
-      <Paper className={classes.paper}>
-        <Typography variant="body1" className={classes.title}>
-          Features
-        </Typography>
+      <FormPaper className="mb-4">
+        <p className="mb-8 text-lg text-primary">Features</p>
 
-        <Box className={classes.grid}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/** LEFT COLUMN */}
-          <Box>
+          <div>
             <ProviderCheckbox
               control={control}
               providerAttributesSchema={providerAttributesSchema}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="IP Leasing"
               name="feat-endpoint-ip"
             />
@@ -476,125 +437,125 @@ export const EditProviderForm: React.FunctionComponent<Props> = ({ provider, pro
             <ProviderCheckbox
               control={control}
               providerAttributesSchema={providerAttributesSchema}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Chia support"
               name="workload-support-chia"
             />
-          </Box>
+          </div>
 
           {/** RIGHT COLUMN */}
-          <Box>
+          <div>
             <ProviderCheckbox
               control={control}
               providerAttributesSchema={providerAttributesSchema}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Custom Domain"
               name="feat-endpoint-custom-domain"
             />
 
-            <ProviderSelect
+            <ProviderMultiSelect
               control={control}
-              className={classes.textfieldSpacing}
+              className="mb-4"
               label="Chia capabilities"
               name="workload-support-chia-capabilities"
-              multiple
               providerAttributesSchema={providerAttributesSchema}
               requiredMessage="At least one chia capability is required."
               required={!!workloadSupportChia}
+              optionName="workload-support-chia-capabilities"
             />
-          </Box>
-        </Box>
-      </Paper>
+          </div>
+        </div>
+      </FormPaper>
 
-      <Paper className={classes.paper}>
-        <Box sx={{ display: "flex", alignItems: "center" }} className={classes.title}>
-          <Typography variant="body1">Unknown attributes</Typography>
+      <FormPaper className="mb-4">
+        <div className="mb-8 flex items-center">
+          <p className="text-lg text-primary">Unknown attributes</p>
 
-          <Button
-            size="small"
-            color="secondary"
-            variant="contained"
-            sx={{ marginLeft: "1rem" }}
-            onClick={() => appendUnkownAttribute({ id: nanoid(), key: "", value: "" })}
-          >
+          <Button size="sm" color="secondary" className="ml-4" onClick={() => appendUnkownAttribute({ id: nanoid(), key: "", value: "" })}>
             Add attribute
           </Button>
-        </Box>
+        </div>
 
-        <Box>
+        <div>
           {unknownAttributes.length > 0 ? (
             unknownAttributes.map((att, attIndex) => {
               return (
-                <Box key={att.id} sx={{ marginBottom: attIndex + 1 === _unknownAttributes.length ? 0 : "1rem" }}>
-                  <Box sx={{ display: "flex" }}>
-                    <Box sx={{ flexGrow: 1, display: "flex", alignItems: "center" }}>
-                      <Box sx={{ flexBasis: "50%" }}>
+                <div key={att.id} className={cn({ ["mb-4"]: attIndex + 1 !== _unknownAttributes?.length })}>
+                  <div className="flex">
+                    <div className="flex flex-grow items-center">
+                      <div className="basis-1/2">
                         <Controller
                           control={control}
                           name={`unknown-attributes.${attIndex}.key`}
                           rules={{ required: "Key is required." }}
                           render={({ field, fieldState }) => (
-                            <TextField
+                            <InputWithIcon
                               type="text"
-                              variant="outlined"
+                              // variant="outlined"
                               label="Key"
                               color="secondary"
-                              fullWidth
+                              className="w-full"
                               value={field.value}
-                              error={!!fieldState.error}
-                              helperText={fieldState.error?.message}
-                              size="small"
+                              error={fieldState.error?.message}
+                              // helperText={fieldState.error?.message}
                               onChange={event => field.onChange(event.target.value)}
                             />
                           )}
                         />
-                      </Box>
+                      </div>
 
-                      <Box sx={{ marginLeft: ".5rem", flexBasis: "50%" }}>
+                      <div className="ml-2 basis-1/2">
                         <Controller
                           control={control}
                           name={`unknown-attributes.${attIndex}.value`}
                           rules={{ required: "Key is required." }}
                           render={({ field, fieldState }) => (
-                            <TextField
+                            <InputWithIcon
                               type="text"
-                              variant="outlined"
+                              // variant="outlined"
                               label="Value"
                               color="secondary"
-                              fullWidth
+                              className="w-full"
                               value={field.value}
-                              error={!!fieldState.error}
-                              helperText={fieldState.error?.message}
-                              size="small"
+                              error={fieldState.error?.message}
+                              // helperText={fieldState.error?.message}
+                              // size="small"
                               onChange={event => field.onChange(event.target.value)}
                             />
                           )}
                         />
-                      </Box>
-                    </Box>
+                      </div>
+                    </div>
 
-                    <Box sx={{ paddingLeft: ".5rem" }}>
-                      <IconButton onClick={() => removeUnkownAttribute(attIndex)} size="small">
-                        <DeleteIcon />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                </Box>
+                    <div className="pl-2">
+                      <Button onClick={() => removeUnkownAttribute(attIndex)} size="icon">
+                        <Bin />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               );
             })
           ) : (
-            <Typography variant="caption">None</Typography>
+            <p className="text-sm text-muted-foreground">None</p>
           )}
-        </Box>
-      </Paper>
+        </div>
+      </FormPaper>
 
-      {error && <Alert severity="error">{error}</Alert>}
+      {error && <Alert variant="destructive">{error}</Alert>}
+      {formState.errors && (
+        <Alert variant="destructive">
+          {Object.entries(formState.errors).map(([key, value]) => {
+            return <div key={key}>{value.message}</div>;
+          })}
+        </Alert>
+      )}
 
-      <Box sx={{ paddingTop: "1rem", display: "flex", justifyContent: "end" }}>
-        <Button color="secondary" size="large" variant="contained" type="submit">
+      <div className="flex justify-end pt-4">
+        <Button color="secondary" size="lg" variant="default" type="submit">
           Save
         </Button>
-      </Box>
+      </div>
     </form>
   );
 };
@@ -608,7 +569,7 @@ type ProviderTextFieldProps = {
   label: string;
   type?: HTMLInputTypeAttribute;
   required?: boolean;
-  rules?: RegisterOptions;
+  rules?: RegisterOptions<ProviderAttributesFormValues>;
   valueModifier?: (value: string) => string;
 };
 const ProviderTextField: React.FunctionComponent<ProviderTextFieldProps> = ({
@@ -628,44 +589,35 @@ const ProviderTextField: React.FunctionComponent<ProviderTextFieldProps> = ({
       control={control}
       name={name}
       rules={{
-        required: required ? requiredMessage : null,
+        required: required ? requiredMessage : undefined,
         ...rules
       }}
       render={({ field, fieldState }) => (
-        <TextField
+        <InputWithIcon
           type={type}
-          variant="outlined"
+          // variant="outlined"
           label={label}
           color="secondary"
           tabIndex={0}
-          error={!!fieldState.error}
-          helperText={fieldState.error?.message}
-          fullWidth
-          value={field.value}
+          error={fieldState.error?.message}
+          // helperText={fieldState.error?.message}
+          // fullWidth
+          value={field.value as string}
           className={className}
-          size="small"
           onChange={event => field.onChange(valueModifier(event.target.value || ""))}
-          InputProps={{
-            sx: {
-              height: "42px"
-            },
-            endAdornment: (
-              <InputAdornment position="end">
-                <CustomTooltip
-                  arrow
-                  title={
-                    <div>
-                      <div>{providerAttributesSchema[name].description}</div>
+          endIcon={
+            <CustomTooltip
+              title={
+                <div>
+                  <div>{providerAttributesSchema[name].description}</div>
 
-                      <div>Attribute key: {providerAttributesSchema[name].key}</div>
-                    </div>
-                  }
-                >
-                  <InfoIcon color="disabled" fontSize="small" />
-                </CustomTooltip>
-              </InputAdornment>
-            )
-          }}
+                  <div>Attribute key: {providerAttributesSchema[name].key}</div>
+                </div>
+              }
+            >
+              <InfoCircle className="text-xs text-muted-foreground" />
+            </CustomTooltip>
+          }
         />
       )}
     />
@@ -684,15 +636,11 @@ const ProviderCheckbox: React.FunctionComponent<ProviderCheckboxProps> = ({ cont
     <Controller
       control={control}
       name={name}
-      render={({ field, fieldState }) => (
-        <Box sx={{ display: "flex", alignItems: "center", height: "42px" }} className={className}>
-          <FormControlLabel
-            control={<Checkbox color="secondary" checked={field.value as boolean} onChange={ev => field.onChange(ev.target.checked)} size="small" />}
-            label={label}
-          />
-          <Box sx={{ display: "flex", alignItems: "center", margin: "0 .9rem" }}>
+      render={({ field }) => (
+        <div className={cn(className, "flex h-[42px] items-center")}>
+          <CheckboxWithLabel label={label} checked={field.value as boolean} onCheckedChange={value => field.onChange(value)} />
+          <div className="mx-2 flex items-center">
             <CustomTooltip
-              arrow
               title={
                 <div>
                   <div>{providerAttributesSchema[name].description}</div>
@@ -701,10 +649,10 @@ const ProviderCheckbox: React.FunctionComponent<ProviderCheckboxProps> = ({ cont
                 </div>
               }
             >
-              <InfoIcon color="disabled" fontSize="small" />
+              <InfoCircle className="text-xs text-muted-foreground" />
             </CustomTooltip>
-          </Box>
-        </Box>
+          </div>
+        </div>
       )}
     />
   );
@@ -717,8 +665,8 @@ type ProviderSelectProps = {
   className?: string;
   requiredMessage: string;
   label: string;
-  multiple?: boolean;
   required?: boolean;
+  placeholder?: string;
 };
 const ProviderSelect: React.FunctionComponent<ProviderSelectProps> = ({
   control,
@@ -728,67 +676,23 @@ const ProviderSelect: React.FunctionComponent<ProviderSelectProps> = ({
   requiredMessage,
   label,
   required = providerAttributesSchema[name].required,
-  multiple
+  placeholder
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const options = providerAttributesSchema[name].values || [];
+  const options = (providerAttributesSchema[name].values || []) as ProviderAttributeSchemaDetailValue[];
 
   return (
     <Controller
       control={control}
       name={name}
       rules={{
-        required: required ? requiredMessage : null
+        required: required ? requiredMessage : undefined
       }}
       render={({ field, fieldState }) => (
-        <Box sx={{ display: "flex", alignItems: "center" }} className={className}>
-          <Autocomplete
-            disableClearable
-            open={isOpen}
-            options={options}
-            value={field.value || (multiple ? ([] as any) : null)}
-            getOptionLabel={option => option.description}
-            defaultValue={multiple ? [] : null}
-            isOptionEqualToValue={(option, value) => option.key === value.key}
-            filterSelectedOptions
-            fullWidth
-            multiple={multiple}
-            ChipProps={{ size: "small" }}
-            onChange={(event, newValue: string[] | null | ProviderAttributeSchemaDetailValue[]) => {
-              field.onChange(newValue);
-            }}
-            renderInput={params => (
-              <ClickAwayListener onClickAway={() => setIsOpen(false)}>
-                <TextField
-                  {...params}
-                  label={label}
-                  variant="outlined"
-                  color="secondary"
-                  size="small"
-                  error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
-                  onClick={() => setIsOpen(prev => !prev)}
-                  sx={{ minHeight: "42px" }}
-                />
-              </ClickAwayListener>
-            )}
-            renderOption={(props, option) => {
-              return (
-                <Box
-                  component="li"
-                  sx={{ display: "flex", alignItems: "center", justifyContent: "space-between !important", width: "100%", padding: ".2rem .5rem" }}
-                  {...props}
-                  key={option.key}
-                >
-                  <div>{option.description}</div>
-                </Box>
-              );
-            }}
-          />
+        <FormItem className={cn("w-full", className)}>
+          <Label className="flex items-center">
+            {label}
 
-          <Box sx={{ display: "flex", alignItems: "center", margin: "0 .9rem" }}>
             <CustomTooltip
-              arrow
               title={
                 <div>
                   <div>{providerAttributesSchema[name].description}</div>
@@ -797,12 +701,105 @@ const ProviderSelect: React.FunctionComponent<ProviderSelectProps> = ({
                 </div>
               }
             >
-              <InfoIcon color="disabled" fontSize="small" />
+              <InfoCircle className="ml-2 text-xs text-muted-foreground" />
             </CustomTooltip>
-          </Box>
-        </Box>
+          </Label>
+          <Select value={(field.value as string) || ""} onValueChange={field.onChange}>
+            <SelectTrigger>
+              <SelectValue placeholder={placeholder} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {options.map(option => {
+                  return (
+                    <SelectItem key={option.key} value={option.key}>
+                      <div className="flex w-full items-center justify-between">
+                        <div>{option.description}</div>
+                        {option.value}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </FormItem>
       )}
     />
   );
 };
 
+type ProviderMultiSelectProps = {
+  control: Control<any, any>;
+  providerAttributesSchema: ProviderAttributesSchema;
+  optionName: keyof ProviderAttributesSchema;
+  name: FieldPath<ProviderAttributesFormValues>;
+  className?: string;
+  requiredMessage?: string;
+  label: string;
+  required?: boolean;
+  disabled?: boolean;
+  placeholder?: string;
+  valueType?: "key" | "description ";
+};
+export const ProviderMultiSelect: React.FunctionComponent<ProviderMultiSelectProps> = ({
+  control,
+  providerAttributesSchema,
+  optionName,
+  name,
+  className,
+  requiredMessage,
+  label,
+  required = providerAttributesSchema[optionName || ""]?.required || false,
+  placeholder,
+  disabled,
+  valueType = "description"
+}) => {
+  const options: ProviderAttributeSchemaDetailValue[] = providerAttributesSchema[optionName || ""]?.values || [];
+
+  return (
+    <Controller
+      control={control}
+      name={name}
+      rules={{
+        required: required ? requiredMessage : undefined
+      }}
+      render={({ field }) => (
+        <div className={cn(className)}>
+          <Label className="flex items-center">
+            {label}
+
+            <CustomTooltip
+              title={
+                <div>
+                  <div>{providerAttributesSchema[name].description}</div>
+
+                  <div>Attribute key: {providerAttributesSchema[name].key}</div>
+                </div>
+              }
+            >
+              <InfoCircle className="ml-2 text-xs text-muted-foreground" />
+            </CustomTooltip>
+          </Label>
+          <MultipleSelector
+            value={
+              (field.value as ProviderAttributeSchemaDetailValue[]).map(v => ({
+                value: v.key,
+                label: (valueType === "key" ? v?.key : v?.description) || ""
+              })) || []
+            }
+            options={options.map(v => ({ value: v.key, label: (valueType === "key" ? v?.key : v?.description) || "" })) || []}
+            hidePlaceholderWhenSelected
+            placeholder={placeholder}
+            emptyIndicator={<p className="text-center text-lg leading-10 text-gray-600 dark:text-gray-400">no results found.</p>}
+            disabled={disabled}
+            className="mt-2"
+            onChange={(newValue: Option[]) => {
+              field.onChange(newValue.map(v => ({ key: v.value, description: v.label })));
+            }}
+          />
+        </div>
+      )}
+    />
+  );
+};

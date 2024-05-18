@@ -1,10 +1,17 @@
-import { Provider } from "@shared/dbSchemas/akash";
+import { Provider, ProviderSnapshot, ProviderSnapshotNode } from "@shared/dbSchemas/akash";
 import { Auditor, ProviderAttributesSchema, ProviderList } from "@src/types/provider";
+import { createFilterUnique } from "../array/array";
 import semver from "semver";
 
-export const mapProviderToList = (provider: Provider, providerAttributeSchema: ProviderAttributesSchema, auditors: Array<Auditor>): ProviderList => {
+export const mapProviderToList = (
+  provider: Provider,
+  providerAttributeSchema: ProviderAttributesSchema,
+  auditors: Array<Auditor>,
+  lastSuccessfulSnapshot?: ProviderSnapshot
+): ProviderList => {
   const isValidVersion = provider.cosmosSdkVersion ? semver.gte(provider.cosmosSdkVersion, "v0.45.9") : false;
   const name = provider.isOnline ? new URL(provider.hostUri).hostname : null;
+  const gpuModels = getDistinctGpuModelsFromNodes(lastSuccessfulSnapshot?.nodes || []);
 
   return {
     owner: provider.owner,
@@ -42,11 +49,13 @@ export const mapProviderToList = (provider: Provider, providerAttributeSchema: P
       memory: isValidVersion ? provider.availableMemory : 0,
       storage: isValidVersion ? provider.availableStorage : 0
     },
+    gpuModels: gpuModels,
     uptime1d: provider.uptime1d,
     uptime7d: provider.uptime7d,
     uptime30d: provider.uptime30d,
     isValidVersion,
     isOnline: provider.isOnline,
+    lastOnlineDate: lastSuccessfulSnapshot?.checkDate,
     isAudited: provider.providerAttributeSignatures.some((a) => auditors.some((y) => y.address === a.auditor)),
     attributes: provider.providerAttributes.map((attr) => ({
       key: attr.key,
@@ -82,6 +91,15 @@ export const mapProviderToList = (provider: Provider, providerAttributeSchema: P
     featEndpointIp: getProviderAttributeValue("feat-endpoint-ip", provider, providerAttributeSchema)
   } as ProviderList;
 };
+
+function getDistinctGpuModelsFromNodes(nodes: ProviderSnapshotNode[]) {
+  const gpuModels = nodes.flatMap((x) => x.gpus).map((x) => ({ vendor: x.vendor, model: x.name, ram: x.memorySize, interface: x.interface }));
+  const distinctGpuModels = gpuModels.filter(
+    createFilterUnique((a, b) => a.vendor === b.vendor && a.model === b.model && a.ram === b.ram && a.interface === b.interface)
+  );
+
+  return distinctGpuModels;
+}
 
 export const getProviderAttributeValue = (
   key: keyof ProviderAttributesSchema,

@@ -1,13 +1,10 @@
+"use client";
 import Drawer from "@mui/material/Drawer";
-import Box from "@mui/material/Box";
-import { useTheme } from "@mui/material/styles";
 import React, { ReactNode } from "react";
-import { makeStyles } from "tss-react/mui";
-import { IconButton, List, ListItemButton, ListItemText, Typography, useMediaQuery } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
 import { ApiTemplate } from "@src/types";
-
-const useStyles = makeStyles()(theme => ({}));
+import { Button, buttonVariants } from "@src/components/ui/button";
+import { Xmark } from "iconoir-react";
+import { cn } from "@src/utils/styleUtils";
 
 type Props = {
   children?: ReactNode;
@@ -15,8 +12,8 @@ type Props = {
   handleDrawerToggle: () => void;
   categories: Array<{ title: string; templates: Array<ApiTemplate> }>;
   templates: Array<ApiTemplate>;
-  selectedCategoryTitle: string;
-  onCategoryClick: (categoryTitle: string) => void;
+  selectedCategoryTitle: string | null;
+  onCategoryClick: (categoryTitle: string | null) => void;
 };
 
 export const MobileTemplatesFilter: React.FunctionComponent<Props> = ({
@@ -27,10 +24,6 @@ export const MobileTemplatesFilter: React.FunctionComponent<Props> = ({
   selectedCategoryTitle,
   onCategoryClick
 }) => {
-  const { classes } = useStyles();
-  const theme = useTheme();
-  const smallScreen = useMediaQuery(theme.breakpoints.down("md"));
-
   return (
     <Drawer
       anchor="bottom"
@@ -49,37 +42,48 @@ export const MobileTemplatesFilter: React.FunctionComponent<Props> = ({
         }
       }}
     >
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <Typography variant="body1" sx={{ fontSize: "1.25rem", padding: ".5rem" }}>
-          Filter Templates
-        </Typography>
+      <div className="flex items-center justify-between py-2">
+        <p className="p-2 text-xl font-bold">Filter Templates</p>
 
-        <IconButton onClick={handleDrawerToggle} size="medium" sx={{ marginRight: ".5rem" }}>
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </Box>
+        <Button onClick={handleDrawerToggle} variant="ghost">
+          <Xmark className="text-sm" />
+        </Button>
+      </div>
 
-      <List sx={{ overflowY: "scroll" }}>
+      <ul className="flex flex-col items-center overflow-y-scroll">
         {templates && (
-          <ListItemButton onClick={() => onCategoryClick(null)} selected={!selectedCategoryTitle} sx={{ padding: ".5rem 1rem" }} dense>
-            <ListItemText primary={`All (${templates.length - 1})`} />
-          </ListItemButton>
+          <li
+            className={cn(
+              { ["bg-muted-foreground/10"]: !selectedCategoryTitle },
+              buttonVariants({ variant: "ghost" }),
+              "flex w-full items-center justify-start p-4"
+            )}
+            onClick={() => onCategoryClick(null)}
+          >
+            <p>
+              All <small>({templates.length - 1})</small>
+            </p>
+          </li>
         )}
 
         {categories
           .sort((a, b) => (a.title < b.title ? -1 : 1))
           .map(category => (
-            <ListItemButton
+            <li
               key={category.title}
               onClick={() => onCategoryClick(category.title)}
-              selected={category.title === selectedCategoryTitle}
-              sx={{ padding: ".5rem 1rem" }}
-              dense
+              className={cn(
+                { ["bg-muted-foreground/10"]: category.title === selectedCategoryTitle },
+                buttonVariants({ variant: "ghost" }),
+                "flex w-full items-center justify-start p-4"
+              )}
             >
-              <ListItemText primary={`${category.title} (${category.templates.length})`} />
-            </ListItemButton>
+              <p>
+                {category.title} <small>({category.templates.length})</small>
+              </p>
+            </li>
           ))}
-      </List>
+      </ul>
     </Drawer>
   );
 };

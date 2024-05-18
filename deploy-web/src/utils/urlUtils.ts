@@ -1,5 +1,5 @@
 import { FaqAnchorType } from "@src/pages/faq";
-import { selectedNetworkId } from "./constants";
+import { mainnetId, selectedNetworkId } from "./constants";
 
 type NewDeploymentParams = {
   step?: string;
@@ -13,10 +13,12 @@ function getSelectedNetworkQueryParam() {
     return selectedNetworkId;
   } else if (typeof window !== "undefined") {
     return new URLSearchParams(window.location.search).get("network");
+  } else {
+    return mainnetId;
   }
-
-  return undefined;
 }
+
+export const domainName = "https://console.akash.network";
 
 export class UrlService {
   static home = () => "/";
@@ -76,11 +78,12 @@ export class UrlService {
   };
 }
 
-export function appendSearchParams(params: { [key: string]: string | number | boolean }) {
+export function appendSearchParams(params: { [key: string]: string | number | boolean | null | undefined } = {}) {
   const urlParams = new URLSearchParams("");
   Object.keys(params).forEach(p => {
-    if (params[p]) {
-      urlParams.set(p, params[p].toString());
+    const value = params[p];
+    if (value) {
+      urlParams.set(p, value.toString());
     }
   });
 

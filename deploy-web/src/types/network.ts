@@ -1,5 +1,7 @@
+import { NetworkId } from "@akashnetwork/akashjs/build/types/network";
+
 export type Network = {
-  id: string;
+  id: NetworkId;
   title: string;
   description: string;
   nodesUrl: string;
@@ -7,6 +9,6 @@ export type Network = {
   chainRegistryName: string;
   versionUrl: string;
   rpcEndpoint?: string;
-  version: string;
+  version: string | null;
   enabled: boolean;
 };

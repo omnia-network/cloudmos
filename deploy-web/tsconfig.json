@@ -16,7 +16,7 @@
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
@@ -35,7 +35,7 @@
         "name": "next"
       }
     ],
-    "strictNullChecks": false
+    "strictNullChecks": true
   },
   "include": [
     "next-env.d.ts",

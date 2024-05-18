@@ -1,20 +1,31 @@
-import { Provider, ProviderAttribute, ProviderAttributeSignature } from "@shared/dbSchemas/akash";
+import { Provider, ProviderAttribute, ProviderAttributeSignature, ProviderSnapshotNode, ProviderSnapshotNodeGPU } from "@shared/dbSchemas/akash";
 import { ProviderSnapshot } from "@shared/dbSchemas/akash/providerSnapshot";
 import { toUTC } from "@src/utils";
-import { add } from "date-fns";
+import { add, sub } from "date-fns";
 import { Op } from "sequelize";
 import { mapProviderToList } from "@src/utils/map/provider";
 import { getAuditors, getProviderAttributesSchema } from "../external/githubService";
 import { ProviderDetail } from "@src/types/provider";
+import { env } from "@src/utils/env";
 
 export async function getNetworkCapacity() {
   const providers = await Provider.findAll({
     where: {
-      isOnline: true,
       deletedHeight: null
-    }
+    },
+    include: [
+      {
+        required: false,
+        model: ProviderSnapshot,
+        as: "lastSuccessfulSnapshot",
+        where: { checkDate: { [Op.gte]: toUTC(sub(new Date(), { minutes: env.ProviderUptimeGracePeriodMinutes })) } }
+      }
+    ]
   });
-  const filteredProviders = providers.filter((value, index, self) => self.map((x) => x.hostUri).indexOf(value.hostUri) === index);
+
+  const filteredProviders = providers
+    .filter((x) => x.isOnline || x.lastSuccessfulSnapshot)
+    .filter((value, index, self) => self.map((x) => x.hostUri).indexOf(value.hostUri) === index);
 
   const stats = {
     activeProviderCount: filteredProviders.length,
@@ -42,7 +53,7 @@ export async function getNetworkCapacity() {
 }
 
 export const getProviderList = async () => {
-  const providers = await Provider.findAll({
+  const providersWithAttributesAndAuditors = await Provider.findAll({
     where: {
       deletedHeight: null
     },
@@ -56,13 +67,40 @@ export const getProviderList = async () => {
       }
     ]
   });
-  const filteredProviders = providers.filter((value, index, self) => self.map((x) => x.hostUri).lastIndexOf(value.hostUri) === index);
+
+  const providerWithNodes = await Provider.findAll({
+    attributes: ["owner"],
+    where: {
+      deletedHeight: null
+    },
+    include: [
+      {
+        model: ProviderSnapshot,
+        attributes: ["id"],
+        required: true,
+        as: "lastSuccessfulSnapshot",
+        include: [
+          {
+            model: ProviderSnapshotNode,
+            attributes: ["id"],
+            required: true,
+            include: [{ model: ProviderSnapshotNodeGPU, required: true }]
+          }
+        ]
+      }
+    ]
+  });
+
+  const distinctProviders = providersWithAttributesAndAuditors.filter((value, index, self) => self.map((x) => x.hostUri).lastIndexOf(value.hostUri) === index);
   const providerAttributeSchemaQuery = getProviderAttributesSchema();
   const auditorsQuery = getAuditors();
 
   const [auditors, providerAttributeSchema] = await Promise.all([auditorsQuery, providerAttributeSchemaQuery]);
 
-  return filteredProviders.map((x) => mapProviderToList(x, providerAttributeSchema, auditors));
+  return distinctProviders.map((x) => {
+    const lastSuccessfulSnapshot = providerWithNodes.find((p) => p.owner === x.owner)?.lastSuccessfulSnapshot;
+    return mapProviderToList(x, providerAttributeSchema, auditors, lastSuccessfulSnapshot);
+  });
 };
 
 export const getProviderDetail = async (address: string): Promise<ProviderDetail> => {
@@ -78,23 +116,36 @@ export const getProviderDetail = async (address: string): Promise<ProviderDetail
       },
       {
         model: ProviderAttributeSignature
-      },
-      {
-        model: ProviderSnapshot,
-        as: "providerSnapshots",
-        attributes: ["isOnline", "id", "checkDate"],
-        required: false,
-        separate: true,
-        where: {
-          checkDate: {
-            [Op.gte]: add(nowUtc, { days: -1 })
-          }
-        }
       }
     ]
   });
 
   if (!provider) return null;
+
+  const uptimeSnapshots = await ProviderSnapshot.findAll({
+    attributes: ["isOnline", "id", "checkDate"],
+    where: {
+      owner: provider.owner,
+      checkDate: {
+        [Op.gte]: add(nowUtc, { days: -1 })
+      }
+    }
+  });
+
+  const lastSuccessfulSnapshot = provider.lastSuccessfulSnapshotId
+    ? await ProviderSnapshot.findOne({
+        where: {
+          id: provider.lastSuccessfulSnapshotId
+        },
+        order: [["checkDate", "DESC"]],
+        include: [
+          {
+            model: ProviderSnapshotNode,
+            include: [{ model: ProviderSnapshotNodeGPU }]
+          }
+        ]
+      })
+    : null;
 
   const providerAttributeSchemaQuery = getProviderAttributesSchema();
   const auditorsQuery = getAuditors();
@@ -102,8 +153,8 @@ export const getProviderDetail = async (address: string): Promise<ProviderDetail
   const [auditors, providerAttributeSchema] = await Promise.all([auditorsQuery, providerAttributeSchemaQuery]);
 
   return {
-    ...mapProviderToList(provider, providerAttributeSchema, auditors),
-    uptime: provider.providerSnapshots.map((ps) => ({
+    ...mapProviderToList(provider, providerAttributeSchema, auditors, lastSuccessfulSnapshot),
+    uptime: uptimeSnapshots.map((ps) => ({
       id: ps.id,
       isOnline: ps.isOnline,
       checkDate: ps.checkDate

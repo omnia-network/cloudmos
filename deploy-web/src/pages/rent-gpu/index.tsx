@@ -1,36 +1,30 @@
-import Layout from "@src/components/layout/Layout";
 import { Title } from "@src/components/shared/Title";
-import PageContainer from "@src/components/shared/PageContainer";
-import { Typography } from "@mui/material";
-import { CustomNextSeo } from "@src/components/shared/CustomNextSeo";
 import React from "react";
-import { UrlService } from "@src/utils/urlUtils";
+import { UrlService, domainName } from "@src/utils/urlUtils";
 import { RentGpusForm } from "@src/components/sdl/RentGpusForm";
+import Layout from "@src/components/layout/Layout";
+import { CustomNextSeo } from "@src/components/shared/CustomNextSeo";
 
-type Props = {};
-
-const RentGpuPage: React.FunctionComponent<Props> = ({}) => {
+function RentGpuPage() {
   return (
     <Layout>
       <CustomNextSeo
         title="Rent GPUs"
-        url={`https://deploy.cloudmos.io${UrlService.sdlBuilder()}`}
+        url={`${domainName}${UrlService.sdlBuilder()}`}
         description="Experience Global GPU Rental Excellence: Seamlessly Deploy AI Workloads with Docker Containers on Kubernetes"
       />
 
-      <PageContainer>
-        <Title value={<>Rent GPUs</>} />
+      <Title>Rent GPUs</Title>
 
-        <Typography variant="body1" color="textSecondary" sx={{ marginBottom: "2rem" }}>
-          Deploy any AI workload on a wide variety of Nvidia GPU models. Select from one of the available templates or input your own docker container image to
-          deploy on one of the providers available worldwide on the network.
-        </Typography>
+      <p className="mb-8 text-muted-foreground">
+        Deploy any AI workload on a wide variety of Nvidia GPU models. Select from one of the available templates or input your own docker container image to
+        deploy on one of the providers available worldwide on the network.
+      </p>
 
-        <RentGpusForm />
-      </PageContainer>
+      <RentGpusForm />
     </Layout>
   );
-};
+}
 
 export default RentGpuPage;
 

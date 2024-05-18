@@ -1,4 +1,5 @@
-import { Box, useTheme } from "@mui/material";
+"use client";
+import { cn } from "@src/utils/styleUtils";
 import { useIntl } from "react-intl";
 
 type Props = {
@@ -6,16 +7,10 @@ type Props = {
 };
 export const Uptime: React.FunctionComponent<Props> = ({ value }) => {
   const intl = useIntl();
-  const theme = useTheme();
 
   return (
-    <Box
-      component="span"
-      sx={{
-        color: value < 0.95 ? theme.palette.warning.main : theme.palette.success.main
-      }}
-    >
+    <span className={cn({ ["text-green-600"]: value > 0.95, ["text-orange-600"]: value < 0.95 })}>
       {intl.formatNumber(value, { style: "percent", maximumFractionDigits: 2 })}
-    </Box>
+    </span>
   );
 };

@@ -1,11 +1,11 @@
-import StarBorderIcon from "@mui/icons-material/StarBorder";
-import StarIcon from "@mui/icons-material/Star";
-import { IconButton } from "@mui/material";
+"use client";
+import { Star, StarSolid } from "iconoir-react";
+import { Button } from "../ui/button";
 
 export const FavoriteButton = ({ onClick, isFavorite }) => {
   return (
-    <IconButton onClick={onClick} size="small">
-      {isFavorite ? <StarIcon fontSize="small" color="secondary" /> : <StarBorderIcon fontSize="small" color="disabled" />}
-    </IconButton>
+    <Button onClick={onClick} size="icon" className="h-8 w-8 rounded-full" variant="ghost">
+      {isFavorite ? <StarSolid className="text-xs text-primary" /> : <Star className="text-xs text-muted-foreground" />}
+    </Button>
   );
 };

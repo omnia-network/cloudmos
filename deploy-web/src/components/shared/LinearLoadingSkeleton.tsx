@@ -1,15 +1,10 @@
-import { Box, LinearProgress } from "@mui/material";
-import { makeStyles } from "tss-react/mui";
+"use client";
+import LinearProgress from "@mui/material/LinearProgress";
 
-const useStyles = makeStyles()(theme => ({
-  loadingSkeleton: {
-    height: "4px",
-    width: "100%"
-  }
-}));
+interface IProps {
+  isLoading: boolean;
+}
 
-export function LinearLoadingSkeleton({ isLoading }) {
-  const { classes } = useStyles();
-
-  return <>{isLoading ? <LinearProgress color="secondary" /> : <Box className={classes.loadingSkeleton} />}</>;
+export function LinearLoadingSkeleton({ isLoading }: IProps) {
+  return <>{isLoading ? <LinearProgress color="primary" /> : <div className="h-[4px] w-full min-w-0" />}</>;
 }

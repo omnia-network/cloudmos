@@ -1,10 +1,11 @@
-import { Button } from "@mui/material";
-import { Snackbar } from "@src/components/shared/Snackbar";
+"use client";
 import { PROVIDER_PROXY_URL_WS } from "@src/utils/constants";
-import { useSnackbar } from "notistack";
 import React from "react";
 import { useCertificate } from "../CertificateProvider";
 import FileSaver from "file-saver";
+import { Button } from "@src/components/ui/button";
+import { useSnackbar } from "notistack";
+import { Snackbar } from "@src/components/shared/Snackbar";
 
 const getPrintCommand = os => {
   switch (os) {
@@ -21,20 +22,17 @@ const getPrintCommand = os => {
 };
 
 type ContextType = {
-  downloadLogs: (hostUri: string, dseq: string, gseq: string, oseq: string, isLogs: boolean) => void;
-  downloadFileFromShell: (hostUri: string, dseq: string, gseq: string, oseq: string, service: string, filePath: string) => void;
+  downloadLogs: (hostUri: string, dseq: string, gseq: number, oseq: number, isLogs: boolean) => void;
+  downloadFileFromShell: (hostUri: string, dseq: string, gseq: number, oseq: number, service: string, filePath: string) => void;
 };
 
-const BackgroundTaskContext = React.createContext<ContextType>({
-  downloadLogs: null,
-  downloadFileFromShell: null
-});
+const BackgroundTaskContext = React.createContext<ContextType>({} as ContextType);
 
 export const BackgroundTaskProvider = ({ children }) => {
   const { localCert } = useCertificate();
   const { enqueueSnackbar, closeSnackbar } = useSnackbar();
 
-  const downloadLogs = async (hostUri: string, dseq: string, gseq: string, oseq: string, isLogs: boolean) => {
+  const downloadLogs = async (hostUri: string, dseq: string, gseq: number, oseq: number, isLogs: boolean) => {
     return new Promise((resolve, reject) => {
       const ws = new WebSocket(PROVIDER_PROXY_URL_WS);
       let isCancelled = false;
@@ -50,7 +48,7 @@ export const BackgroundTaskProvider = ({ children }) => {
         <Snackbar
           title={isLogs ? "Downloading logs..." : "Downloading events..."}
           subTitle={
-            <Button onClick={onCancel} variant="text" color="primary" size="small">
+            <Button onClick={onCancel} variant="text" size="sm">
               Cancel
             </Button>
           }
@@ -107,8 +105,8 @@ export const BackgroundTaskProvider = ({ children }) => {
           JSON.stringify({
             type: "websocket",
             url: url,
-            certPem: localCert.certPem,
-            keyPem: localCert.keyPem
+            certPem: localCert?.certPem,
+            keyPem: localCert?.keyPem
           })
         );
       };
@@ -124,7 +122,7 @@ export const BackgroundTaskProvider = ({ children }) => {
     });
   };
 
-  const downloadFileFromShell = async (hostUri: string, dseq: string, gseq: string, oseq: string, service: string, filePath: string) => {
+  const downloadFileFromShell = async (hostUri: string, dseq: string, gseq: number, oseq: number, service: string, filePath: string) => {
     const ws = new WebSocket(PROVIDER_PROXY_URL_WS);
     let isCancelled = false;
     let isFinished = false;
@@ -139,7 +137,7 @@ export const BackgroundTaskProvider = ({ children }) => {
       <Snackbar
         title={`Downloading ${filePath}...`}
         subTitle={
-          <Button onClick={onCancel} variant="contained" color="primary" size="small">
+          <Button onClick={onCancel} size="sm">
             Cancel
           </Button>
         }
@@ -200,7 +198,7 @@ export const BackgroundTaskProvider = ({ children }) => {
     ws.onclose = () => {
       if (isCancelled) {
         console.log("Cancelled");
-      } else if (isFinished) {
+      } else if (isFinished && fileContent) {
         closeSnackbar(snackbarKey);
         console.log("Done, downloading file");
         const filename = filePath.replace(/^.*[\\\/]/, "");
@@ -216,8 +214,8 @@ export const BackgroundTaskProvider = ({ children }) => {
         JSON.stringify({
           type: "websocket",
           url: url,
-          certPem: localCert.certPem,
-          keyPem: localCert.keyPem
+          certPem: localCert?.certPem,
+          keyPem: localCert?.keyPem
         })
       );
     };
